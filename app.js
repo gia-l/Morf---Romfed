@@ -2,7 +2,7 @@
   'use strict';
 
   const M = window.MorfCore;
-  const STORE_KEY = 'morf-2-settings-v9-polish';
+  const STORE_KEY = 'morf-3-settings-v1-names';
   let state = M.normalizeState(M.DEFAULT_STATE);
   let lastResults = [];
   let lastStats = {};
@@ -363,7 +363,7 @@
   }
 
   function isDictionarySegment(seg){
-    return seg && (seg.source === 'lexicon' || seg.source === 'vocabulary');
+    return seg && (seg.source === 'lexicon' || seg.source === 'vocabulary' || seg.source === 'name');
   }
 
   function displaySegmentsForResult(item){
@@ -498,6 +498,7 @@
     renderAdditionalPatterns();
     renderLexicon();
     renderVocabulary();
+    renderNames();
     populateCategorySelects();
   }
 
@@ -528,6 +529,10 @@
           ${['start','middle','end','anywhere'].map(v => `<option value="${v}" ${v === (c.placement || 'anywhere') ? 'selected' : ''}>${v}</option>`).join('')}
         </select></label>
       </div>
+      <div class="grid two compactChecks">
+        <label class="check"><input class="lexAppliesWords" type="checkbox" ${c.appliesWords === false ? '' : 'checked'}> Applies to words</label>
+        <label class="check"><input class="lexAppliesNames" type="checkbox" ${c.appliesNames ? 'checked' : ''}> Applies to names</label>
+      </div>
       <label>Entries <span class="hint">one per line: form = gloss; hyphens are okay, like ma- or -i</span><textarea class="lexEntries" spellcheck="false">${escapeHtml(M.entriesToText(c.entries || [], 'lex'))}</textarea></label>
     </section>`).join('') || '<div class="notice">No lexicon categories yet.</div>';
   }
@@ -544,6 +549,22 @@
     </section>`).join('') || '<div class="notice">No vocabulary categories yet.</div>';
   }
 
+
+
+  function renderNames(){
+    const wrap = $('#namesList');
+    if(!wrap) return;
+    wrap.innerHTML = (state.nameCategories || []).map(c => `<section class="card" data-id="${escapeHtml(c.id)}">
+      ${cardHeader(c.name || c.variable || 'Names', `Variable ..${c.variable || '?'}.. · ${c.type || 'name'}`, 'deleteNameCat')}
+      <div class="grid three">
+        <label>Double-dot variable<input class="nameVariable" value="${escapeHtml(c.variable || '')}"></label>
+        <label>Name<input class="nameCatName" value="${escapeHtml(c.name || '')}"></label>
+        <label>Type<input class="nameType" value="${escapeHtml(c.type || '')}" placeholder="person, place, title..."></label>
+      </div>
+      <label>Name entries <span class="hint">one per line: Name = actual meaning | literal meaning | notes | nicknames</span><textarea class="nameEntries" spellcheck="false">${escapeHtml(M.nameEntriesToText ? M.nameEntriesToText(c.entries || []) : '')}</textarea></label>
+    </section>`).join('') || '<div class="notice">No name categories yet.</div>';
+  }
+
   function bindEditors(){
     $('#addAdditionalBtn').addEventListener('click', () => {
       state.additionalPatterns.push({ id: M.uid('add'), letter: 'X', name: 'New pattern', pattern: 'a/e/i' });
@@ -557,8 +578,14 @@
       state.vocabularyCategories.push({ id: M.uid('voc'), variable: 'x', name: 'New vocabulary', entries: [] });
       renderVocabulary(); populateCategorySelects(); debounceSave();
     });
+    const addNameBtn = $('#addNameCategoryBtn');
+    if(addNameBtn) addNameBtn.addEventListener('click', () => {
+      state.nameCategories = state.nameCategories || [];
+      state.nameCategories.push({ id: M.uid('name'), variable: 'N', name: 'New names', type: 'name', entries: [] });
+      renderNames(); populateCategorySelects(); debounceSave();
+    });
     $('#resetDefaultsBtn').addEventListener('click', () => {
-      if(confirm('Restore the starter Morf 2.0 settings? This replaces the current local settings.')){
+      if(confirm('Restore the starter Morf settings? This replaces the current local settings.')){
         state = M.normalizeState(M.DEFAULT_STATE);
         lastResults = [];
         syncControls();
@@ -592,6 +619,17 @@
         renderVocabulary(); populateCategorySelects(); debounceSave();
       }
     });
+    const namesList = $('#namesList');
+    if(namesList){
+      namesList.addEventListener('input', e => updateNameFromEvent(e));
+      namesList.addEventListener('click', e => {
+        if(e.target.classList.contains('deleteNameCat')){
+          const id = e.target.closest('.card').dataset.id;
+          state.nameCategories = (state.nameCategories || []).filter(c => c.id !== id);
+          renderNames(); populateCategorySelects(); debounceSave();
+        }
+      });
+    }
   }
 
   function updateAdditionalFromEvent(e){
@@ -614,6 +652,8 @@
     if(e.target.classList.contains('lexName')) c.name = e.target.value;
     if(e.target.classList.contains('lexPlacement')) c.placement = e.target.value;
     if(e.target.classList.contains('lexEntries')) c.entries = M.textToEntries(e.target.value, 'lex');
+    if(e.target.classList.contains('lexAppliesWords')) c.appliesWords = e.target.checked;
+    if(e.target.classList.contains('lexAppliesNames')) c.appliesNames = e.target.checked;
     populateCategorySelects();
     debounceSave();
   }
@@ -630,26 +670,45 @@
     debounceSave();
   }
 
+  function updateNameFromEvent(e){
+    const card = e.target.closest('.card');
+    if(!card) return;
+    const c = (state.nameCategories || []).find(x => x.id === card.dataset.id);
+    if(!c) return;
+    if(e.target.classList.contains('nameVariable')) c.variable = e.target.value.replace(/^\.+|\.+$/g, '').trim();
+    if(e.target.classList.contains('nameCatName')) c.name = e.target.value;
+    if(e.target.classList.contains('nameType')) c.type = e.target.value;
+    if(e.target.classList.contains('nameEntries')) c.entries = M.textToNameEntries ? M.textToNameEntries(e.target.value) : [];
+    populateCategorySelects();
+    debounceSave();
+  }
+
   function populateCategorySelects(){
     const lexOptions = (state.lexiconCategories || []).map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name || c.letter)}</option>`).join('');
     const vocOptions = (state.vocabularyCategories || []).map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name || c.variable)}</option>`).join('');
     const patOptions = (state.additionalPatterns || []).map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml((p.letter || '?') + ' · ' + (p.name || 'Pattern'))}</option>`).join('');
+    const nameOptions = (state.nameCategories || []).map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name || c.variable)}</option>`).join('');
     const lexSel = $('#segmentLexCat');
     const vocSel = $('#segmentVocCat');
+    const nameSel = $('#segmentNameCat');
     if(lexSel) lexSel.innerHTML = lexOptions;
     if(vocSel) vocSel.innerHTML = vocOptions;
+    if(nameSel) nameSel.innerHTML = nameOptions;
     const moveLex = $('#moveLexCat');
     const moveVoc = $('#moveVocCat');
     const movePat = $('#movePatternCat');
+    const moveName = $('#moveNameCat');
     if(moveLex) moveLex.innerHTML = lexOptions;
     if(moveVoc) moveVoc.innerHTML = vocOptions;
+    if(moveName) moveName.innerHTML = nameOptions;
     if(movePat) movePat.innerHTML = patOptions;
     const filter = $('#dictCategoryFilter');
     if(filter){
       const current = filter.value || 'all';
       const opts = ['<option value="all">All categories</option>']
         .concat((state.lexiconCategories || []).map(c => `<option value="lex:${escapeHtml(c.id)}">Lexicon: ${escapeHtml(c.name || c.letter)}</option>`))
-        .concat((state.vocabularyCategories || []).map(c => `<option value="voc:${escapeHtml(c.id)}">Vocabulary: ${escapeHtml(c.name || c.variable)}</option>`));
+        .concat((state.vocabularyCategories || []).map(c => `<option value="voc:${escapeHtml(c.id)}">Vocabulary: ${escapeHtml(c.name || c.variable)}</option>`))
+        .concat((state.nameCategories || []).map(c => `<option value="name:${escapeHtml(c.id)}">Names: ${escapeHtml(c.name || c.variable)}</option>`));
       filter.innerHTML = opts.join('');
       filter.value = opts.some(o => o.includes(`value="${current}"`)) ? current : 'all';
     }
@@ -760,6 +819,11 @@
       const entry = cat && (cat.entries || []).find(e => String(e.id || e.word) === String(entryId));
       return cat && entry ? { scope, cat, entry } : null;
     }
+    if(scope === 'name'){
+      const cat = (state.nameCategories || []).find(c => c.id === catId);
+      const entry = cat && (cat.entries || []).find(e => String(e.id || e.name) === String(entryId));
+      return cat && entry ? { scope, cat, entry } : null;
+    }
     return null;
   }
 
@@ -769,14 +833,15 @@
     editingEntry = { scope, catId, entryId };
     populateCategorySelects();
     $('#segmentDialogTitle').textContent = 'Edit dictionary entry';
-    $('#segmentForm').value = scope === 'lex' ? (ref.entry.form || '') : (ref.entry.word || '');
-    $('#segmentGloss').value = ref.entry.gloss || ref.entry.meaning || '';
+    $('#segmentForm').value = scope === 'lex' ? (ref.entry.form || '') : (scope === 'vocab' ? (ref.entry.word || '') : (ref.entry.name || ''));
+    $('#segmentGloss').value = scope === 'name' ? (ref.entry.actual || ref.entry.gloss || ref.entry.meaning || '') : (ref.entry.gloss || ref.entry.meaning || '');
     setSegmentDialogMode('edit');
     const moveKind = $('#moveEntryKind');
     if(moveKind){
-      moveKind.value = scope === 'lex' ? 'lex' : 'vocab';
+      moveKind.value = scope === 'lex' ? 'lex' : (scope === 'name' ? 'name' : 'vocab');
       if(scope === 'lex' && $('#moveLexCat')) $('#moveLexCat').value = catId;
       if(scope === 'vocab' && $('#moveVocCat')) $('#moveVocCat').value = catId;
+      if(scope === 'name' && $('#moveNameCat')) $('#moveNameCat').value = catId;
       updateMoveKindUI();
     }
     $('#segmentDialog').showModal();
@@ -786,6 +851,7 @@
     const kind = $('#moveEntryKind') ? $('#moveEntryKind').value : 'lex';
     if($('#moveLexWrap')) $('#moveLexWrap').hidden = kind !== 'lex';
     if($('#moveVocWrap')) $('#moveVocWrap').hidden = kind !== 'vocab';
+    if($('#moveNameWrap')) $('#moveNameWrap').hidden = kind !== 'name';
     if($('#movePatternWrap')) $('#movePatternWrap').hidden = kind !== 'pattern';
   }
 
@@ -796,9 +862,9 @@
     const form = $('#segmentForm').value.trim();
     const gloss = $('#segmentGloss').value.trim();
     if(!form){ setStatus('Form is blank.', 'error'); return; }
-    if(editingEntry.scope === 'lex') ref.entry.form = form;
-    else ref.entry.word = form;
-    ref.entry.gloss = gloss;
+    if(editingEntry.scope === 'lex') { ref.entry.form = form; ref.entry.gloss = gloss; }
+    else if(editingEntry.scope === 'vocab') { ref.entry.word = form; ref.entry.gloss = gloss; }
+    else { ref.entry.name = form; ref.entry.actual = gloss; }
     renderEditors(); renderDictionary(); debounceSave();
     $('#segmentDialog').close();
     setStatus(`Finished editing ${form}.`, 'success');
@@ -807,6 +873,7 @@
   function removeEditingEntry(ref){
     if(ref.scope === 'lex') ref.cat.entries = (ref.cat.entries || []).filter(e => e !== ref.entry);
     if(ref.scope === 'vocab') ref.cat.entries = (ref.cat.entries || []).filter(e => e !== ref.entry);
+    if(ref.scope === 'name') ref.cat.entries = (ref.cat.entries || []).filter(e => e !== ref.entry);
   }
 
   function moveCurrentEntry(){
@@ -829,6 +896,12 @@
       removeEditingEntry(ref);
       cat.entries.push({ id: M.uid('ve'), word: form, gloss });
       setStatus(`Moved ${form} to Vocabulary category: ${cat.name || cat.variable}.`, 'success');
+    } else if(kind === 'name'){
+      let cat = (state.nameCategories || []).find(c => c.id === ($('#moveNameCat') && $('#moveNameCat').value));
+      if(!cat){ setStatus('Choose a name category first.', 'error'); return; }
+      removeEditingEntry(ref);
+      cat.entries.push({ id: M.uid('ne'), name: form, actual: gloss, literal: '', notes: '', nicknames: '' });
+      setStatus(`Moved ${form} to Name category: ${cat.name || cat.variable}.`, 'success');
     } else {
       let pat = (state.additionalPatterns || []).find(p => p.id === ($('#movePatternCat') && $('#movePatternCat').value));
       if(!pat){ setStatus('Choose an additional pattern first.', 'error'); return; }
@@ -872,6 +945,21 @@
       renderVocabulary(); populateCategorySelects(); renderDictionary(); debounceSave();
       $('#segmentDialog').close();
       setStatus(`Added duplicate/synonym ${word} to ${cat.name || cat.variable}.`, 'success');
+    });
+    const addNameBtn = $('#addSegmentName');
+    if(addNameBtn) addNameBtn.addEventListener('click', () => {
+      const name = $('#segmentForm').value.trim();
+      if(!name){ setStatus('Name is blank.', 'error'); return; }
+      let cat = (state.nameCategories || []).find(c => c.id === ($('#segmentNameCat') && $('#segmentNameCat').value));
+      if(!cat){
+        cat = { id: M.uid('name'), variable: 'N', name: 'Quick Names', type: 'name', entries: [] };
+        state.nameCategories = state.nameCategories || [];
+        state.nameCategories.push(cat);
+      }
+      cat.entries.push({ id: M.uid('ne'), name, actual: $('#segmentGloss').value.trim(), literal: '', notes: '', nicknames: '' });
+      renderNames(); populateCategorySelects(); renderDictionary(); debounceSave();
+      $('#segmentDialog').close();
+      setStatus(`Added duplicate/variant ${name} to ${cat.name || cat.variable}.`, 'success');
     });
   }
 
@@ -954,6 +1042,35 @@
           place: 'whole word',
           detail: 'whole vocabulary word',
           categoryId: `voc:${cat.id}`
+        });
+      }
+    }
+
+    for(const cat of state.nameCategories || []){
+      for(const en of cat.entries || []){
+        const variants = entryVariants(en.name || '', engine);
+        const meanings = [en.actual || en.gloss || en.meaning || ''].filter(Boolean);
+        const entryId = en.id || en.name;
+        rows.push({
+          id: `name:${cat.id}:${entryId}`,
+          type: 'Name',
+          scope: 'name',
+          catId: cat.id,
+          entryId,
+          form: variants[0] || (en.name || ''),
+          displayForm: (variants.length > 1 && en.name) ? en.name : (variants[0] || en.name || ''),
+          rawForm: en.name || '',
+          variants,
+          meanings,
+          gloss: meanings.join(' / ') || '',
+          literal: en.literal || '',
+          notes: en.notes || '',
+          nicknames: en.nicknames || '',
+          cat: cat.name || cat.variable || 'Names',
+          code: `..${cat.variable || '?'}..`,
+          place: 'name',
+          detail: cat.type ? `${cat.type} name` : 'proper name',
+          categoryId: `name:${cat.id}`
         });
       }
     }
@@ -1041,6 +1158,7 @@
       const addMeanings = row.additionalMeanings || [];
       const meaningsDetails = addMeanings.length ? `<details class="dictDetails"><summary>Show additional meanings (${addMeanings.length})</summary><div class="dictChips">${addMeanings.map(m => dictChip(m, 'extraMeaning')).join('')}</div></details>` : '';
       const synonyms = row.synonyms || [];
+      const nameExtraHtml = row.scope === 'name' ? `<div class="dictChips">${row.literal ? dictChip('literal: ' + row.literal, 'extraMeaning') : ''}${row.nicknames ? dictChip('nicknames: ' + row.nicknames, 'extraMeaning') : ''}${row.notes ? dictChip('notes: ' + row.notes, 'extraMeaning') : ''}</div>` : '';
       const synonymsHtml = synonyms.length ? `<details class="dictDetails"><summary>See synonyms (${synonyms.length})</summary><div class="synonymList">${synonyms.map(s => `<button type="button" class="synonymItem dictEdit" ${editAttrs(s)}><strong>${escapeHtml(s.displayForm || s.form)}</strong><span>${escapeHtml(s.gloss || '(no meaning)')}</span><em>${escapeHtml(s.type)} · ${escapeHtml(s.cat)}</em></button>`).join('')}</div></details>` : '';
       return `<article class="dictCard">
         <div class="dictMain">
@@ -1053,7 +1171,7 @@
           ${row.code ? dictChip(row.code) : ''}
           ${dictChip(row.detail)}
         </div>
-        ${variationsHtml}${meaningsDetails}${synonymsHtml}
+        ${variationsHtml}${meaningsDetails}${nameExtraHtml}${synonymsHtml}
       </article>`;
     }).join('') : '<div class="notice">No matching dictionary entries.</div>';
     $('#dictCount').textContent = `${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`;
@@ -1100,7 +1218,7 @@
 
     $('#exportBtn').addEventListener('click', () => {
       const json = M.exportState(state);
-      download('morf-2-settings.morf', json, 'application/json');
+      download('morf-3-settings.morf', json, 'application/json');
       setStatus('Exported settings file.', 'success');
     });
     $('#importBtn').addEventListener('click', () => $('#importFile').click());
@@ -1124,10 +1242,10 @@
     }
     $('#copySettingsBtn').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(M.exportState(state)); setStatus('Settings JSON copied.', 'success'); }
-      catch(err){ download('morf-2-settings.morf', M.exportState(state), 'application/json'); }
+      catch(err){ download('morf-3-settings.morf', M.exportState(state), 'application/json'); }
     });
     $('#clearLocalBtn').addEventListener('click', () => {
-      if(confirm('Clear the browser autosave for Morf 2.0?')){
+      if(confirm('Clear the browser autosave for Morf?')){
         try { localStorage.removeItem(STORE_KEY); setStatus('Autosave cleared.', 'success'); }
         catch(err){ setStatus('Autosave was already unavailable here.', 'info'); }
       }

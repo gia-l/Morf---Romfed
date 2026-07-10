@@ -3,26 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-  <title>Morf 2.1.6</title>
+  <title>Morf Version 3</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="hero">
     <div>
-      <p class="eyebrow">Morf 2.1.6</p>
-      <h1>Morf 2.1.6</h1>
-      <p class="lede">Create words from sounds, morphemes, derivations, and meanings.</p>
+      <p class="eyebrow">Version 3</p>
+      <h1>Morf</h1>
+      <p class="lede">Create words, names, derivations, and meanings from one connected language workshop.</p>
     </div>
     <div id="status" class="status" role="status" aria-live="polite">Loading app scripts...</div>
   </header>
 
-  <noscript><div class="notice error" style="margin:1rem clamp(1rem,4vw,3rem)">Morf 2.0 needs JavaScript. Open the standalone HTML directly in a browser or host it somewhere that allows scripts.</div></noscript>
+  <noscript><div class="notice error" style="margin:1rem clamp(1rem,4vw,3rem)">Morf needs JavaScript. Open the standalone HTML directly in a browser or host it somewhere that allows scripts.</div></noscript>
 
   <nav class="tabs" aria-label="Morf sections">
     <button class="tab active" type="button" data-tab="generator">Generator</button>
     <button class="tab" type="button" data-tab="translator">Translator</button>
     <button class="tab" type="button" data-tab="lexicon">Lexicon</button>
     <button class="tab" type="button" data-tab="vocabulary">Vocabulary</button>
+    <button class="tab" type="button" data-tab="names">Names</button>
     <button class="tab" type="button" data-tab="patterns">Additional patterns</button>
     <button class="tab" type="button" data-tab="dictionary">Dictionary</button>
     <button class="tab" type="button" data-tab="settings">Settings</button>
@@ -82,7 +83,7 @@
       <div class="card mainCard">
         <label for="pattern">Pattern</label>
         <input id="pattern" class="bigInput" spellcheck="false" placeholder="Examples: [CV]{2}(C), P R S, <CV>&, .n.">
-        <p class="hint">Uppercase letters expand additional patterns or lexicon categories. Dot variables like <code>.n.</code> pull whole vocabulary words.</p>
+        <p class="hint">Uppercase letters expand additional patterns or lexicon categories. Dot variables like <code>.n.</code> pull whole vocabulary words. Double-dot variables like <code>..F..</code> pull names.</p>
 
         <div class="grid four optionsGrid">
           <label>Amount of words to generate<input id="genCount" type="number" min="1" max="9999" value="100"></label>
@@ -174,6 +175,21 @@
       <div id="vocabularyList" class="stack"></div>
     </section>
 
+
+    <section id="names" class="panel" aria-labelledby="names-title">
+      <div class="panelHeader">
+        <div>
+          <h2 id="names-title">Name categories</h2>
+          <p>Proper names live here: people, places, titles, groups, deities, and story-world names. Use double-dot variables like <code>..F..</code> or <code>..place..</code> in generator patterns.</p>
+        </div>
+        <button id="addNameCategoryBtn" class="primary" type="button">+ New name category</button>
+      </div>
+      <div class="card">
+        <p class="hint">Name entries use one line each: <code>Name = actual meaning | literal meaning | notes | nicknames</code>. Variations like <code>Jord[a/y]n</code> and <code>Carol[i/y]n(e)</code> stay in one name entry. Names can contain capitals and spaces without turning letters into pattern variables.</p>
+      </div>
+      <div id="namesList" class="stack"></div>
+    </section>
+
     <section id="patterns" class="panel" aria-labelledby="patterns-title">
       <div class="panelHeader">
         <div>
@@ -196,7 +212,7 @@
       <div class="card">
         <div class="grid three">
           <label>Search<input id="dictionarySearch" placeholder="form, gloss, category"></label>
-          <label>Scope<select id="dictionaryScope"><option value="all">All</option><option value="lex">Lexicon only</option><option value="vocab">Vocabulary only</option></select></label>
+          <label>Scope<select id="dictionaryScope"><option value="all">All</option><option value="lex">Lexicon only</option><option value="vocab">Vocabulary only</option><option value="name">Names only</option></select></label>
           <label>Category<select id="dictCategoryFilter"><option value="all">All categories</option></select></label>
         </div>
       </div>
@@ -224,7 +240,7 @@
       <div class="card">
         <h3>Paste settings import</h3>
         <label>Paste .morf / JSON settings here<textarea id="pasteSettingsBox" rows="6" placeholder='{
-  "app": "Morf 2.0",
+  "app": "Morf",
   "patterns": { ... }
 }'></textarea></label>
         <div class="actions"><button id="importPastedSettingsBtn" type="button">Import pasted settings</button></div>
@@ -246,7 +262,7 @@
       <div class="panelHeader">
         <div>
           <h2 id="help-title">Syntax help</h2>
-          <p>This is the Morf 2.0 grammar in one place.</p>
+          <p>This is the Morf Version 3 grammar in one place.</p>
         </div>
       </div>
       <div class="helpGrid">
@@ -261,6 +277,7 @@
         </dl></article>
         <article class="card"><h3>Morf additions</h3><dl>
           <dt><code>.n.</code></dt><dd>Choose a whole word from a Vocabulary category.</dd>
+          <dt><code>..F..</code></dt><dd>Choose a proper name from a Names category. Names can keep capitals and spaces.</dd>
           <dt><code>&lt;CV&gt;&amp;</code></dt><dd>Capture then repeat the last capture.</dd>
           <dt><code>&amp;1</code></dt><dd>Repeat the first capture.</dd>
           <dt><code>C{3}</code>, <code>[CV]{2,4}</code></dt><dd>Exact and range repetition.</dd>
@@ -275,7 +292,7 @@
           <dt><code>&lt;C&gt;&amp;1</code></dt><dd>Forbidden repeated captured consonant, useful for blocking geminates.</dd>
           <dt><code>$pep$</code></dt><dd>In Starts with / Ends with only, try to fit that literal into the existing pattern; if it cannot fit, prepend or append it. Contains stays a normal filter.</dd>
         </dl></article>
-        <article class="card"><h3>Translator behavior</h3><p>The analyzer builds a tile set from Lexicon morphemes and Vocabulary whole words. Exact vocabulary matches are preferred, but mixed morpheme parses are still listed as alternatives.</p><p>Placement rules are strict: start entries only parse in an unbroken start-zone, middle entries cannot parse at the beginning or end, and end entries only parse in an ending-zone.</p><p>Click generated or translator segments to add them. Click dictionary entries to edit them, or move them between Vocabulary, Lexicon, and Additional patterns.</p></article>
+        <article class="card"><h3>Translator behavior</h3><p>The analyzer builds a tile set from Lexicon morphemes, Vocabulary whole words, and Names. Exact vocabulary matches are preferred, but mixed morpheme parses are still listed as alternatives.</p><p>Placement rules are strict: start entries only parse in an unbroken start-zone, middle entries cannot parse at the beginning or end, and end entries only parse in an ending-zone.</p><p>Click generated or translator segments to add them. Click dictionary entries to edit them, or move them between Vocabulary, Lexicon, and Additional patterns.</p></article>
 
         <article class="card"><h3>Synonyms, homonyms, and variations</h3><dl>
           <dt><code>mor[o/u] = water</code> or <code>dar/dra = before</code></dt><dd>Slash/optional forms are variation words inside one entry. The dictionary shows them under “Show variation words.”</dd>
@@ -295,10 +312,12 @@
       <div class="grid two" id="addCategoryControls">
         <label>Lexicon category<select id="segmentLexCat"></select></label>
         <label>Vocabulary category<select id="segmentVocCat"></select></label>
+        <label>Name category<select id="segmentNameCat"></select></label>
       </div>
       <div class="actions" id="addSegmentActions">
         <button id="addSegmentLex" class="primary" type="button">Add as duplicate/synonym to Lexicon</button>
         <button id="addSegmentVoc" type="button">Add as duplicate/synonym to Vocabulary</button>
+        <button id="addSegmentName" type="button">Add as duplicate/variant to Names</button>
       </div>
       <div id="editEntryControls" hidden>
         <div class="actions">
@@ -310,10 +329,12 @@
             <label>Destination<select id="moveEntryKind">
               <option value="lex">Lexicon</option>
               <option value="vocab">Vocabulary</option>
+              <option value="name">Names</option>
               <option value="pattern">Additional patterns</option>
             </select></label>
             <label id="moveLexWrap">Lexicon category<select id="moveLexCat"></select></label>
             <label id="moveVocWrap" hidden>Vocabulary category<select id="moveVocCat"></select></label>
+            <label id="moveNameWrap" hidden>Name category<select id="moveNameCat"></select></label>
             <label id="movePatternWrap" hidden>Additional pattern<select id="movePatternCat"></select></label>
           </div>
           <div class="actions"><button id="moveEntryBtn" type="button">Move entry to selected category</button></div>

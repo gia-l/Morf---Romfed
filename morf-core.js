@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  const VERSION = 'Morf 2.1.3';
+  const VERSION = 'Morf 3.0';
   const MAX_ENUM = 750;
   const MAX_ATTEMPTS = 250;
 
@@ -137,7 +137,7 @@
 
   function unwrapCompatState(input){
     const src = isPlainObject(input) ? input : {};
-    const fullKeys = ['generator','categories','lexiconCategories','dictionaryCategories','wordCategories','additionalPatterns','patterns','graphemePatterns','vocabularyCategories','vocabCategories','vocab','vocabulary','words','entries','pattern','generatorPattern','mainPattern'];
+    const fullKeys = ['generator','categories','lexiconCategories','dictionaryCategories','wordCategories','additionalPatterns','patterns','graphemePatterns','vocabularyCategories','vocabCategories','vocab','vocabulary','words','entries','nameCategories','names','pattern','generatorPattern','mainPattern'];
     const looksFull = obj => isPlainObject(obj) && fullKeys.some(k => hasOwn(obj, k));
     for(const key of ['state','data','morf','appState','payload']){
       if(looksFull(src[key])) return src[key];
@@ -344,7 +344,7 @@
   ];
 
   const DEFAULT_STATE = {
-    meta: { app: 'Morf 2.0', version: VERSION, exportedAt: '' },
+    meta: { app: 'Morf', version: VERSION, exportedAt: '' },
     generator: {
       pattern: '',
       count: 100,
@@ -372,18 +372,24 @@
       { id: 'add_L', letter: 'L', name: 'Liquids', pattern: 'l/r' }
     ],
     lexiconCategories: [
-      { id: 'lex_P', letter: 'P', name: 'Prefixes', placement: 'start', entries: [
+      { id: 'lex_P', letter: 'P', name: 'Prefixes', placement: 'start', appliesWords: true, appliesNames: false, entries: [
         { id: 'le_un', form: 'un-', gloss: 'opposite' },
         { id: 'le_ma', form: 'ma-', gloss: 'person/agent' }
       ]},
-      { id: 'lex_R', letter: 'R', name: 'Roots', placement: 'anywhere', entries: [
+      { id: 'lex_R', letter: 'R', name: 'Roots', placement: 'anywhere', appliesWords: true, appliesNames: true, entries: [
         { id: 'le_kal', form: 'kal', gloss: 'stone' },
         { id: 'le_nu', form: 'nu', gloss: 'water' },
         { id: 'le_sol', form: 'sol', gloss: 'sun' }
       ]},
-      { id: 'lex_S', letter: 'S', name: 'Suffixes', placement: 'end', entries: [
+      { id: 'lex_S', letter: 'S', name: 'Suffixes', placement: 'end', appliesWords: true, appliesNames: false, entries: [
         { id: 'le_i', form: '-i', gloss: 'noun' },
         { id: 'le_a', form: '-a', gloss: 'verb' }
+      ]}
+    ],
+    nameCategories: [
+      { id: 'name_F', variable: 'F', name: 'First names', type: 'person', entries: [
+        { id: 'ne_sila', name: 'Sila', actual: 'bird-associated personal name', literal: 'bird', notes: 'Starter example', nicknames: 'Sil' },
+        { id: 'ne_morobecc', name: 'Morobecc/Morbek', actual: 'coastal area', literal: 'water-like', notes: 'Starter place-name example', nicknames: '' }
       ]}
     ],
     vocabularyCategories: [
@@ -511,7 +517,13 @@
       let i = 0;
       while(i < str.length){
         const ch = str[i];
-        if(/\s/.test(ch)){ i++; continue; }
+        if(/\s/.test(ch)){
+          let j = i;
+          while(j < str.length && /\s/.test(str[j])) j++;
+          if(children.length && children[children.length - 1].type === 'namevar' && str.slice(j, j + 2) === '..') children.push({ type: 'literal', text: ' ' });
+          i = j;
+          continue;
+        }
         let node = null;
         if(ch === '"'){
           let j = i + 1;
@@ -544,10 +556,17 @@
           node = { type: 'backref', index: digits ? parseInt(digits, 10) : null };
           i = j;
         } else if(ch === '.'){
-          const j = str.indexOf('.', i + 1);
-          if(j === -1) throw new ParseError('Missing closing dot for vocabulary variable', i);
-          node = { type: 'vocab', name: str.slice(i + 1, j).trim() };
-          i = j + 1;
+          if(str[i + 1] === '.'){
+            const j = str.indexOf('..', i + 2);
+            if(j === -1) throw new ParseError('Missing closing double-dot for name variable', i);
+            node = { type: 'namevar', name: str.slice(i + 2, j).trim() };
+            i = j + 2;
+          } else {
+            const j = str.indexOf('.', i + 1);
+            if(j === -1) throw new ParseError('Missing closing dot for vocabulary variable', i);
+            node = { type: 'vocab', name: str.slice(i + 1, j).trim() };
+            i = j + 1;
+          }
         } else if(ch === '|'){
           const j = str.indexOf('|', i + 1);
           if(j === -1) throw new ParseError('Missing closing pipe reference', i);
@@ -574,7 +593,7 @@
           i = j;
         }
 
-        if(node && (node.type === 'var' || node.type === 'ref' || node.type === 'vocab')){
+        if(node && (node.type === 'var' || node.type === 'ref' || node.type === 'vocab' || node.type === 'namevar')){
           const inlineRep = this.readInlineRepeat(str, i);
           if(inlineRep){
             node = { type: 'repeat', node, min: inlineRep.min, max: inlineRep.max };
@@ -755,6 +774,7 @@
         }
         case 'var': return this.generateVariable(node.name, context);
         case 'vocab': return this.generateVocab(node.name, context);
+        case 'namevar': return this.generateName(node.name, context);
         case 'ref': return this.generateRef(node.name, context);
         default: return { ok: false, text: '', segs: [], reason: `unknown node ${node.type}` };
       }
@@ -808,6 +828,20 @@
       const forms = this.expandStoredForm(cand.entry.word, { includeLex: false, includeVocab: false });
       const word = stripAffixMarks(pick(forms, this.rng) || cand.entry.word || '');
       return { ok: true, text: word, segs: [{ form: word, cat: cand.cat.name || cand.cat.variable || clean, gloss: entryGloss(cand.entry), meanings: entryMeanings(cand.entry), variable: cand.cat.variable || '', source: 'vocabulary' }] };
+    }
+
+    generateName(name, context){
+      const clean = trimDots(name);
+      const cats = (this.state.nameCategories || []).filter(c => (c.variable || '') === clean || (c.name || '') === clean || (c.type || '') === clean);
+      const entries = [];
+      for(const cat of cats){ for(const en of cat.entries || []) entries.push({ cat, entry: en }); }
+      if(!entries.length) return { ok: true, text: `..${clean}..`, segs: [{ form: `..${clean}..`, cat: 'literal', gloss: '' }] };
+      const cand = pick(entries, this.rng);
+      const forms = this.expandStoredForm(cand.entry.name, { includeLex: false, includeVocab: false, includeAdditional: true });
+      const word = pick(forms, this.rng) || cand.entry.name || '';
+      const gloss = cand.entry.actual || cand.entry.gloss || cand.entry.meaning || '';
+      const literal = cand.entry.literal || '';
+      return { ok: true, text: word, segs: [{ form: word, cat: cand.cat.name || cand.cat.variable || clean, gloss, literal, actual: gloss, variable: cand.cat.variable || '', source: 'name', nameType: cand.cat.type || '' }] };
     }
 
     generateRef(name, context){
@@ -934,6 +968,7 @@
         }
         case 'var': return this.enumerateVariable(node.name, ctx);
         case 'vocab': return this.enumerateVocab(node.name, ctx);
+        case 'namevar': return this.enumerateName(node.name, ctx);
         case 'ref': return this.enumerateRef(node.name, ctx);
         default: return [''];
       }
@@ -949,6 +984,8 @@
       }
       if(ctx.includeLex){
         for(const cat of this.state.lexiconCategories || []){
+          if(ctx.mode === 'name' && cat.appliesNames === false) continue;
+          if(ctx.mode !== 'name' && cat.appliesWords === false) continue;
           if((cat.letter || '') === name || (cat.name || '') === name){
             for(const en of cat.entries || []) out.push(...this.expandStoredForm(en.form, { includeLex: false, includeVocab: false }));
           }
@@ -967,6 +1004,17 @@
         }
       }
       return capList(out.length ? out : [`.${clean}.`], ctx.limit);
+    }
+
+    enumerateName(name, ctx){
+      const clean = trimDots(name);
+      const out = [];
+      for(const cat of this.state.nameCategories || []){
+        if((cat.variable || '') === clean || (cat.name || '') === clean || (cat.type || '') === clean){
+          for(const en of cat.entries || []) if(en.name) out.push(...this.expandStoredForm(en.name, { includeLex: false, includeVocab: false, includeAdditional: true }));
+        }
+      }
+      return capList(out.length ? out : [`..${clean}..`], ctx.limit);
     }
 
     enumerateRef(name, ctx){
@@ -1023,6 +1071,7 @@
         case 'filter': return this.regexNode(node.node, ctx);
         case 'var': return this.regexFromList(this.enumerateVariable(node.name, { stack: [], limit: ctx.limit, includeLex: true, includeAdditional: true, includeVocab: false }));
         case 'vocab': return this.regexFromList(this.enumerateVocab(node.name, { stack: [], limit: ctx.limit, includeVocab: true }));
+        case 'namevar': return this.regexFromList(this.enumerateName(node.name, { stack: [], limit: ctx.limit }));
         case 'ref': return this.regexFromList(this.enumerateRef(node.name, { stack: [], limit: ctx.limit, includeLex: true, includeAdditional: true, includeVocab: true }));
         default: return '';
       }
@@ -1260,6 +1309,29 @@
         }
       }
     }
+    for(const cat of state.nameCategories || []){
+      for(const en of cat.entries || []){
+        const forms = engine.expandStoredForm(en.name, { includeLex: false, includeVocab: false, includeAdditional: true });
+        const gloss = en.actual || en.gloss || en.meaning || '';
+        for(const form of forms){
+          const name = String(form || '').trim();
+          if(!name) continue;
+          tiles.push({
+            form: name,
+            raw: en.name || name,
+            gloss,
+            meanings: gloss ? [gloss] : [],
+            literal: en.literal || '',
+            cat: cat.name || cat.variable || 'Names',
+            variable: cat.variable || '',
+            placement: 'anywhere',
+            source: 'name',
+            nameType: cat.type || '',
+            entryId: en.id || ''
+          });
+        }
+      }
+    }
     tiles.sort((a,b) => b.form.length - a.form.length || a.form.localeCompare(b.form));
     if(engine) engine._tilesCache = tiles;
     return tiles;
@@ -1435,7 +1507,7 @@
       stats.attempts++;
       let built;
       try {
-        built = engine.generate(pattern);
+        built = engine.generate(pattern, { mode: String(pattern).includes('..') ? 'name' : 'generate' });
       } catch(err){
         stats.failed++;
         if(stats.errors.length < 10) stats.errors.push(err.message || String(err));
@@ -1617,6 +1689,58 @@
     }).filter(p => p.letter && p.pattern);
   }
 
+
+  function parseNameEntryLineMany(line){
+    const raw = String(line || '').trim();
+    if(!raw || raw.startsWith('#') || raw.startsWith('//')) return [];
+    const eq = raw.indexOf('=');
+    const left = eq >= 0 ? raw.slice(0, eq).trim() : raw;
+    const right = eq >= 0 ? raw.slice(eq + 1).trim() : '';
+    const parts = right.split('|').map(s => s.trim());
+    const actual = parts[0] || '';
+    const literal = parts[1] || '';
+    const notes = parts[2] || '';
+    const nicknames = parts[3] || '';
+    // Comma means separate name entries; slash/brackets/parentheses stay as variations of one entry.
+    return splitTopLevel(left, ',').map(s => s.trim()).filter(Boolean).map(name => ({ id: uid('ne'), name, actual, literal, notes, nicknames }));
+  }
+
+  function nameEntriesToText(entries){
+    return (entries || []).map(e => {
+      const bits = [e.actual || e.gloss || e.meaning || '', e.literal || '', e.notes || '', e.nicknames || ''];
+      while(bits.length && !bits[bits.length - 1]) bits.pop();
+      return `${e.name || ''}${bits.length ? ' = ' + bits.join(' | ') : ''}`;
+    }).join('\n');
+  }
+
+  function textToNameEntries(text){
+    const out = [];
+    for(const line of normalizeNewlines(text).split('\n')) out.push(...parseNameEntryLineMany(line));
+    return out.filter(e => e.name);
+  }
+
+  function normalizeNamesCompat(src, baseCategories){
+    const raw = src == null ? baseCategories : ensureArrayish(src);
+    return (raw.length ? raw : []).map(c => ({
+      id: (c && c.id) || uid('name'),
+      variable: cleanRefName((c && (c.variable || c.var || c.letter || c.code || c.name)) || 'N') || 'N',
+      name: cleanString((c && c.name) || (c && c.variable) || 'Names'),
+      type: cleanString(c && (c.type || c.kind || c.nameType), 'other'),
+      entries: ensureArrayish(c && (c.entries || c.items || c.names)).flatMap(e => {
+        if(typeof e === 'string') return parseNameEntryLineMany(e);
+        const first = cleanString(e && (e.name ?? e.word ?? e.form ?? e.text ?? e.value ?? ''), '');
+        return splitTopLevel(first, ',').map(n => n.trim()).filter(Boolean).map((name, idx) => ({
+          id: (idx === 0 && e && e.id) ? e.id : uid('ne'),
+          name,
+          actual: cleanString(e && (e.actual ?? e.meaning ?? e.gloss ?? e.definition ?? ''), ''),
+          literal: cleanString(e && (e.literal ?? e.literalMeaning ?? e.analysis ?? ''), ''),
+          notes: cleanString(e && (e.notes ?? e.note ?? ''), ''),
+          nicknames: Array.isArray(e && e.nicknames) ? e.nicknames.join(', ') : cleanString(e && (e.nicknames ?? e.nickname ?? ''), '')
+        }));
+      }).filter(e => e.name)
+    }));
+  }
+
   function normalizeLexiconCompat(categories, baseCategories){
     const rawList = categories == null ? baseCategories : ensureArrayish(categories);
     const list = rawList.length ? rawList : [];
@@ -1629,6 +1753,8 @@
         letter,
         name: cleanString((c && c.name) || letter || 'Lexicon'),
         placement,
+        appliesWords: c && Object.prototype.hasOwnProperty.call(c, 'appliesWords') ? !!c.appliesWords : !(c && (c.onlyNames || c.nameOnly)),
+        appliesNames: !!(c && (c.appliesNames || c.onlyNames || c.nameOnly)),
         entries: rawEntries.flatMap(e => {
           if(typeof e === 'string') return parseEntryLineMany(e, 'lex');
           const mapStyle = e && e._compatKey && e.form == null && e.word == null && e.text == null && e.value != null;
@@ -1708,19 +1834,20 @@
     if(src.advancedSettings && src.advancedSettings.filters){
       importWarnings.push('Old combined output filters were imported into Legacy filters but left disabled so they cannot block generation. Re-add them in Starts/Contains/Ends if you still want them.');
     }
-    out.meta = Object.assign({}, base.meta, isPlainObject(src.meta) ? src.meta : {}, { app: 'Morf 2.0', importWarnings });
+    out.meta = Object.assign({}, base.meta, isPlainObject(src.meta) ? src.meta : {}, { app: 'Morf', importWarnings });
     out.generator = normalizeGeneratorCompat(src, base);
     out.advanced = normalizeAdvancedCompat(src, base);
     out.font = Object.assign({}, base.font, isPlainObject(src.font) ? src.font : {});
     out.additionalPatterns = normalizePatternCompat(src.additionalPatterns ?? src.patterns ?? src.graphemePatterns, base.additionalPatterns);
     out.lexiconCategories = normalizeLexiconCompat(src.lexiconCategories ?? src.categories ?? src.dictionaryCategories ?? src.wordCategories, base.lexiconCategories);
     out.vocabularyCategories = normalizeVocabularyCompat(src, base.vocabularyCategories);
+    out.nameCategories = normalizeNamesCompat(src.nameCategories ?? src.names ?? src.nameCategories, base.nameCategories || []);
     return out;
   }
 
   function exportState(state){
     const out = normalizeState(state);
-    out.meta = Object.assign({}, out.meta, { app: 'Morf 2.0', version: VERSION, exportedAt: new Date().toISOString() });
+    out.meta = Object.assign({}, out.meta, { app: 'Morf', version: VERSION, exportedAt: new Date().toISOString() });
     return JSON.stringify(out, null, 2);
   }
 
@@ -1822,6 +1949,8 @@
     entryGloss,
     textToEntries,
     entriesToText,
+    textToNameEntries,
+    nameEntriesToText,
     uid,
     clone
   };
