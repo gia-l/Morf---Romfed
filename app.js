@@ -2,9 +2,11 @@
   'use strict';
 
   const M = window.MorfCore;
-  const STORE_KEY = 'morf-2-settings-v8-editpatch';
+  const STORE_KEY = 'morf-2-settings-v9-polish';
   let state = M.normalizeState(M.DEFAULT_STATE);
   let lastResults = [];
+  let lastStats = {};
+  let lastElapsed = 0;
   let selectedSegment = null;
   let editingEntry = null;
   let saveTimer = null;
@@ -272,14 +274,21 @@
   function alphabetizeResults(){
     if(!lastResults.length){ setStatus('Generate words first, then alphabetize.', 'error'); return; }
     lastResults.sort((a,b) => a.word.localeCompare(b.word));
-    renderResults(lastResults);
+    renderResults(lastResults, lastStats, lastElapsed);
   }
 
   function pickRandomResult(){
     if(!lastResults.length){ setStatus('Generate words first, then pick random.', 'error'); return; }
-    const item = lastResults[Math.floor(Math.random() * lastResults.length)];
-    setStatus(`Random pick: ${item.word}${item.gloss ? ' — ' + item.gloss : ''}`, 'success');
-    $$('.resultItem').forEach(el => el.classList.toggle('picked', el.dataset.word === item.word));
+    const pickIndex = Math.floor(Math.random() * lastResults.length);
+    const picked = Object.assign({}, lastResults[pickIndex], { picked: true });
+    const rest = lastResults
+      .filter((_, idx) => idx !== pickIndex)
+      .map(item => Object.assign({}, item, { picked: false }));
+    lastResults = [picked].concat(rest);
+    renderResults(lastResults, lastStats, lastElapsed);
+    setStatus(`Random pick moved to top: ${picked.word}${picked.gloss ? ' — ' + picked.gloss : ''}`, 'success');
+    const top = $('#results .resultItem.picked');
+    if(top && top.scrollIntoView) top.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   function selectCopyOutput(){
@@ -325,6 +334,8 @@
       const pattern = (state.generator.pattern || '').trim();
       if(!pattern){
         lastResults = [];
+        lastStats = {};
+        lastElapsed = 0;
         $('#results').innerHTML = '<div class="notice error">Enter a generator pattern first, like <code>CV</code> or <code>[CV]{2}</code>.</div>';
         $('#outputText').value = '';
         $('#resultStats').textContent = 'No pattern entered';
@@ -336,8 +347,10 @@
       const start = (window.performance && performance.now) ? performance.now() : Date.now();
       const run = M.generateWords(state, { count, meanings });
       const elapsed = Math.round(((window.performance && performance.now) ? performance.now() : Date.now()) - start);
-      lastResults = run.results;
-      renderResults(lastResults, run.stats, elapsed);
+      lastResults = run.results.map(item => Object.assign({}, item, { picked: false }));
+      lastStats = run.stats || {};
+      lastElapsed = elapsed;
+      renderResults(lastResults, lastStats, lastElapsed);
       const status = run.stats.generated
         ? `Generated ${run.stats.generated}/${run.stats.requested} in ${elapsed} ms. Attempts: ${run.stats.attempts}.`
         : zeroGenerationMessage(run.stats);
@@ -418,14 +431,15 @@
       const segmentsHtml = segs.map(seg => segmentHtml(seg)).join('');
       const gloss = item.gloss || (analysis.length ? M.glossForSegments(analysis) : '');
       const quickGloss = escapeHtml(item.gloss || gloss || '');
-      return `<article class="resultItem" data-word="${escapeHtml(item.word)}">
+      return `<article class="resultItem${item.picked ? ' picked' : ''}" data-word="${escapeHtml(item.word)}">
         <div class="resultTop">
           <span class="num">${idx + 1}</span>
           <strong class="word">${escapeHtml(item.word)}</strong>
+          ${item.picked ? '<span class="tag pickedTag">random pick</span>' : ''}
           ${item.gloss ? `<span class="gloss">${escapeHtml(item.gloss)}</span>` : ''}
           <span class="resultAddButtons">
-            <button class="small quickAddWord" type="button" data-prefer="vocab" data-form="${escapeHtml(item.word)}" data-gloss="${quickGloss}">Add whole word to Vocabulary</button>
-            <button class="small quickAddWord" type="button" data-prefer="lex" data-form="${escapeHtml(item.word)}" data-gloss="${quickGloss}">Add whole word to Lexicon</button>
+            <button class="small quickAddWord" type="button" data-prefer="vocab" data-form="${escapeHtml(item.word)}" data-gloss="${quickGloss}">Add as duplicate/synonym to Vocabulary</button>
+            <button class="small quickAddWord" type="button" data-prefer="lex" data-form="${escapeHtml(item.word)}" data-gloss="${quickGloss}">Add as duplicate/synonym to Lexicon</button>
           </span>
         </div>
         <div class="segments" aria-label="Segments for ${escapeHtml(item.word)}">${segmentsHtml || '<span class="muted">No segmentation</span>'}</div>
@@ -759,7 +773,12 @@
     $('#segmentGloss').value = ref.entry.gloss || ref.entry.meaning || '';
     setSegmentDialogMode('edit');
     const moveKind = $('#moveEntryKind');
-    if(moveKind){ moveKind.value = scope === 'lex' ? 'vocab' : 'lex'; updateMoveKindUI(); }
+    if(moveKind){
+      moveKind.value = scope === 'lex' ? 'lex' : 'vocab';
+      if(scope === 'lex' && $('#moveLexCat')) $('#moveLexCat').value = catId;
+      if(scope === 'vocab' && $('#moveVocCat')) $('#moveVocCat').value = catId;
+      updateMoveKindUI();
+    }
     $('#segmentDialog').showModal();
   }
 
@@ -803,13 +822,13 @@
       if(!cat){ setStatus('Choose a lexicon category first.', 'error'); return; }
       removeEditingEntry(ref);
       cat.entries.push({ id: M.uid('le'), form, gloss });
-      setStatus(`Moved ${form} to Lexicon: ${cat.name || cat.letter}.`, 'success');
+      setStatus(`Moved ${form} to Lexicon category: ${cat.name || cat.letter}.`, 'success');
     } else if(kind === 'vocab'){
       let cat = (state.vocabularyCategories || []).find(c => c.id === ($('#moveVocCat') && $('#moveVocCat').value));
       if(!cat){ setStatus('Choose a vocabulary category first.', 'error'); return; }
       removeEditingEntry(ref);
       cat.entries.push({ id: M.uid('ve'), word: form, gloss });
-      setStatus(`Moved ${form} to Vocabulary: ${cat.name || cat.variable}.`, 'success');
+      setStatus(`Moved ${form} to Vocabulary category: ${cat.name || cat.variable}.`, 'success');
     } else {
       let pat = (state.additionalPatterns || []).find(p => p.id === ($('#movePatternCat') && $('#movePatternCat').value));
       if(!pat){ setStatus('Choose an additional pattern first.', 'error'); return; }
@@ -839,7 +858,7 @@
       cat.entries.push({ id: M.uid('le'), form, gloss: $('#segmentGloss').value.trim() });
       renderLexicon(); populateCategorySelects(); renderDictionary(); debounceSave();
       $('#segmentDialog').close();
-      setStatus(`Added ${form} to ${cat.name || cat.letter}.`, 'success');
+      setStatus(`Added duplicate/synonym ${form} to ${cat.name || cat.letter}.`, 'success');
     });
     $('#addSegmentVoc').addEventListener('click', () => {
       const word = $('#segmentForm').value.trim();
@@ -852,7 +871,7 @@
       cat.entries.push({ id: M.uid('ve'), word, gloss: $('#segmentGloss').value.trim() });
       renderVocabulary(); populateCategorySelects(); renderDictionary(); debounceSave();
       $('#segmentDialog').close();
-      setStatus(`Added ${word} to ${cat.name || cat.variable}.`, 'success');
+      setStatus(`Added duplicate/synonym ${word} to ${cat.name || cat.variable}.`, 'success');
     });
   }
 

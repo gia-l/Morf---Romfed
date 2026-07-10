@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-  <title>Morf 2.0</title>
+  <title>Morf 2.1.5</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="hero">
     <div>
-      <p class="eyebrow">Morf 2.0</p>
-      <h1>Morf 2.0</h1>
+      <p class="eyebrow">Morf 2.1.5</p>
+      <h1>Morf 2.1.5</h1>
       <p class="lede">Create words from sounds, morphemes, derivations, and meanings.</p>
     </div>
     <div id="status" class="status" role="status" aria-live="polite">Loading app scripts...</div>
@@ -288,8 +288,8 @@
         <label>Vocabulary category<select id="segmentVocCat"></select></label>
       </div>
       <div class="actions" id="addSegmentActions">
-        <button id="addSegmentLex" class="primary" type="button">Add to Lexicon</button>
-        <button id="addSegmentVoc" type="button">Add to Vocabulary</button>
+        <button id="addSegmentLex" class="primary" type="button">Add as duplicate/synonym to Lexicon</button>
+        <button id="addSegmentVoc" type="button">Add as duplicate/synonym to Vocabulary</button>
       </div>
       <div id="editEntryControls" hidden>
         <div class="actions">
@@ -307,8 +307,8 @@
             <label id="moveVocWrap" hidden>Vocabulary category<select id="moveVocCat"></select></label>
             <label id="movePatternWrap" hidden>Additional pattern<select id="movePatternCat"></select></label>
           </div>
-          <div class="actions"><button id="moveEntryBtn" type="button">Move entry</button></div>
-          <p class="hint">Moving to Additional patterns adds the form as an option inside the chosen pattern and removes this dictionary entry.</p>
+          <div class="actions"><button id="moveEntryBtn" type="button">Move entry to selected category</button></div>
+          <p class="hint">Use Finish editing for the spelling/meaning only. Use Move entry to selected category to move it between Prefixes, Roots, Vocabulary, or Additional patterns.</p>
         </details>
       </div>
     </form>

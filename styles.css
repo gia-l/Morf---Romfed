@@ -134,3 +134,19 @@ main{padding:1rem clamp(1rem,4vw,3rem) 4rem}
   .segmentDialog .grid.two { grid-template-columns: 1fr; }
   .segmentDialog .actions button { width: 100%; }
 }
+
+/* Morf 2.1.5 pick-random and move polish */
+.resultItem.picked{
+  border-color:var(--success);
+  background:linear-gradient(180deg,#123927,#0f1835);
+  box-shadow:0 0 0 3px rgba(144,242,189,.22), var(--shadow);
+}
+.pickedTag{
+  border-color:#6be3a1;
+  background:#123927;
+  color:#dfffee;
+}
+.moveEntryBox .hint{margin:.65rem 0 0}
+@media (max-width:700px){
+  .pickedTag{width:max-content;max-width:100%}
+}
