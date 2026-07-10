@@ -997,6 +997,98 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
     return out;
   }
 
+
+
+  function expandDictionarySpelling(raw, isName, engine){
+    const text = String(raw || '').trim();
+    if(!text) return [];
+    const primaryExpand = () => {
+      if(isName && M.expandNameSpelling) return M.expandNameSpelling(text, 250);
+      return engine.expandStoredForm(text, { includeLex: false, includeVocab: false, includeAdditional: true });
+    };
+    let vals = [];
+    try { vals = primaryExpand() || []; } catch(_) { vals = []; }
+
+    // Extra safety for dictionary display: if anything still contains raw syntax,
+    // expand the compact spelling notation locally. This keeps /, [], and ()
+    // from appearing as the main dictionary headword.
+    function splitTopLevelLocal(str, sep){
+      const parts = []; let cur = '', sq = 0, par = 0, quote = '';
+      for(let i = 0; i < str.length; i++){
+        const ch = str[i];
+        if(quote){ cur += ch; if(ch === quote) quote = ''; continue; }
+        if(ch === '"' || ch === "'"){ quote = ch; cur += ch; continue; }
+        if(ch === '[') sq++;
+        else if(ch === ']') sq = Math.max(0, sq - 1);
+        else if(ch === '(') par++;
+        else if(ch === ')') par = Math.max(0, par - 1);
+        if(ch === sep && sq === 0 && par === 0){ parts.push(cur); cur = ''; }
+        else cur += ch;
+      }
+      parts.push(cur);
+      return parts;
+    }
+    function findClose(str, start, open, close){
+      let depth = 0, quote = '';
+      for(let i = start; i < str.length; i++){
+        const ch = str[i];
+        if(quote){ if(ch === quote) quote = ''; continue; }
+        if(ch === '"' || ch === "'"){ quote = ch; continue; }
+        if(ch === open) depth++;
+        else if(ch === close){ depth--; if(depth === 0) return i; }
+      }
+      return -1;
+    }
+    function combine(a,b){
+      const out=[];
+      for(const x of a){ for(const y of b){ out.push(x+y); if(out.length >= 250) return out; } }
+      return out;
+    }
+    function expandLocal(str){
+      str = String(str || '').trim();
+      const slashParts = splitTopLevelLocal(str, '/').map(x => x.trim()).filter(Boolean);
+      if(slashParts.length > 1){
+        let out=[];
+        for(const part of slashParts) out.push(...expandLocal(part));
+        return out.slice(0,250);
+      }
+      let acc=[''];
+      for(let i=0;i<str.length;i++){
+        const ch=str[i];
+        if(ch === '['){
+          const j=findClose(str,i,'[',']');
+          if(j !== -1){
+            const inside=str.slice(i+1,j);
+            const pieces=splitTopLevelLocal(inside,'/').map(x=>x.trim()).filter(Boolean);
+            let vals=[];
+            for(const piece of (pieces.length ? pieces : [inside])) vals.push(...expandLocal(piece));
+            acc=combine(acc, vals.length ? vals : ['']); i=j; continue;
+          }
+        }
+        if(ch === '('){
+          const j=findClose(str,i,'(',')');
+          if(j !== -1){
+            const inside=str.slice(i+1,j);
+            const pieces=splitTopLevelLocal(inside,'/').map(x=>x.trim()).filter(Boolean);
+            let vals=[''];
+            for(const piece of (pieces.length ? pieces : [inside])) vals.push(...expandLocal(piece));
+            acc=combine(acc, vals); i=j; continue;
+          }
+        }
+        if(ch === '"' || ch === "'"){
+          const q=ch; let j=i+1, lit='';
+          while(j<str.length && str[j]!==q){ lit += str[j++]; }
+          acc=combine(acc,[lit]); i = j < str.length ? j : str.length; continue;
+        }
+        acc=combine(acc,[ch]);
+      }
+      return acc.slice(0,250);
+    }
+    const needsFallback = !vals.length || vals.some(v => /[\[\]()/]/.test(String(v)));
+    if(needsFallback) vals = expandLocal(text);
+    return uniq(vals.map(v => M.stripAffixMarks ? M.stripAffixMarks(v) : v).filter(Boolean));
+  }
+
   function placementLabel(place){
     if(place === 'start') return 'prefix / start';
     if(place === 'middle') return 'middle / infix';
@@ -1005,33 +1097,19 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
   }
 
   function entryVariants(raw, engine){
-    try {
-      const vals = engine.expandStoredForm(raw, { includeLex: false, includeVocab: false, includeAdditional: true });
-      return uniq(vals.map(v => M.stripAffixMarks(v))).filter(Boolean);
-    } catch(err){
-      const stripped = M.stripAffixMarks(raw || '');
-      return stripped ? [stripped] : [];
-    }
+    return expandDictionarySpelling(raw, false, engine);
   }
 
   function nameEntryVariants(raw, engine){
-    try {
-      const vals = M.expandNameSpelling ? M.expandNameSpelling(raw, 200) : engine.expandStoredForm(raw, { includeLex: false, includeVocab: false, includeAdditional: true });
-      return uniq(vals.map(v => M.stripAffixMarks(v))).filter(Boolean);
-    } catch(err){
-      const stripped = M.stripAffixMarks(raw || '');
-      return stripped ? [stripped] : [];
-    }
+    return expandDictionarySpelling(raw, true, engine);
   }
 
   function nicknameVariants(raw, engine){
     if(!raw) return [];
-    try {
-      const vals = M.expandNameSpelling ? M.expandNameSpelling(raw, 200) : engine.expandStoredForm(raw, { includeLex: false, includeVocab: false, includeAdditional: true });
-      return uniq(vals.map(v => M.stripAffixMarks(v))).filter(Boolean);
-    } catch(err){
-      return uniq(String(raw || '').split(/[\n,\/]+/).map(v => M.stripAffixMarks(v))).filter(Boolean);
-    }
+    const parts = String(raw || '').split(/\n|,/).map(x => x.trim()).filter(Boolean);
+    let out = [];
+    for(const part of parts) out.push(...expandDictionarySpelling(part, true, engine));
+    return uniq(out);
   }
 
   function collectDictionaryRows(){
