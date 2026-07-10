@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Morf 2.0</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Morf 2.0</p>
+      <h1>Morf 2.0</h1>
+      <p class="lede">Create words from sounds, morphemes, derivations, and meanings.</p>
+    </div>
+    <div id="status" class="status" role="status" aria-live="polite">Loading app scripts...</div>
+  </header>
+
+  <noscript><div class="notice error" style="margin:1rem clamp(1rem,4vw,3rem)">Morf 2.0 needs JavaScript. Open the standalone HTML directly in a browser or host it somewhere that allows scripts.</div></noscript>
+
+  <nav class="tabs" aria-label="Morf sections">
+    <button class="tab active" type="button" data-tab="generator">Generator</button>
+    <button class="tab" type="button" data-tab="translator">Translator</button>
+    <button class="tab" type="button" data-tab="lexicon">Lexicon</button>
+    <button class="tab" type="button" data-tab="vocabulary">Vocabulary</button>
+    <button class="tab" type="button" data-tab="patterns">Additional patterns</button>
+    <button class="tab" type="button" data-tab="dictionary">Dictionary</button>
+    <button class="tab" type="button" data-tab="settings">Settings</button>
+    <button class="tab" type="button" data-tab="help">Syntax help</button>
+  </nav>
+
+  <script>
+    // Tiny independent tab switcher. This runs separately from the main app so tabs
+    // keep working even if another script hits an error.
+    window.MorfSwitchTab = function(tabId){
+      var tabs = document.querySelectorAll('.tab[data-tab]');
+      var panels = document.querySelectorAll('.panel');
+      for(var i = 0; i < tabs.length; i++){
+        tabs[i].classList.toggle('active', tabs[i].getAttribute('data-tab') === tabId);
+        tabs[i].setAttribute('aria-selected', tabs[i].getAttribute('data-tab') === tabId ? 'true' : 'false');
+      }
+      for(var j = 0; j < panels.length; j++){
+        panels[j].classList.remove('active');
+        panels[j].hidden = true;
+      }
+      var panel = document.getElementById(tabId) || document.getElementById('tab-' + tabId);
+      if(panel){
+        panel.classList.add('active');
+        panel.hidden = false;
+      }
+      if(tabId === 'dictionary' && typeof window.renderMorfDictionary === 'function') window.renderMorfDictionary();
+      try { history.replaceState(null, '', '#' + tabId); } catch(e) {}
+      return false;
+    };
+    window.MorfTabs = { show: window.MorfSwitchTab, bind: function(){} };
+    document.addEventListener('click', function(e){
+      var btn = e.target && e.target.closest ? e.target.closest('.tab[data-tab]') : null;
+      if(!btn) return;
+      e.preventDefault();
+      window.MorfSwitchTab(btn.getAttribute('data-tab'));
+    });
+    document.addEventListener('DOMContentLoaded', function(){
+      var panels = document.querySelectorAll('.panel');
+      for(var i = 0; i < panels.length; i++){
+        if(!panels[i].classList.contains('active')) panels[i].hidden = true;
+      }
+      var initial = (location.hash || '').replace('#','');
+      if(initial && (document.getElementById(initial) || document.getElementById('tab-' + initial))) window.MorfSwitchTab(initial);
+    });
+  </script>
+
+  <main>
+    <section id="generator" class="panel active" aria-labelledby="generator-title">
+      <div class="panelHeader">
+        <div>
+          <h2 id="generator-title">Generator</h2>
+          <p>Use phonological tokens, morpheme categories, whole-word vocabulary variables, captures, and rewrites together.</p>
+        </div>
+        <button id="sampleBtn" class="small" type="button">Load mixed sample</button>
+      </div>
+
+      <div class="card mainCard">
+        <label for="pattern">Pattern</label>
+        <input id="pattern" class="bigInput" spellcheck="false" placeholder="Examples: [CV]{2}(C), P R S, <CV>&, .n.">
+        <p class="hint">Uppercase letters expand additional patterns or lexicon categories. Dot variables like <code>.n.</code> pull whole vocabulary words.</p>
+
+        <div class="grid four optionsGrid">
+          <label>Amount of words to generate<input id="genCount" type="number" min="1" max="9999" value="100"></label>
+          <label class="check"><input id="avoidDuplicates" type="checkbox"> Filter duplicates</label>
+          <label class="check"><input id="capitalize" type="checkbox"> Capitalize first</label>
+          <label class="check"><input id="newlineEach" type="checkbox"> New line each</label>
+          <label class="check"><input id="detectLexicon" type="checkbox"> Detect existing lexicon</label>
+          <label class="check"><input id="assignCoreMeanings" type="checkbox"> Assign starter meanings</label>
+          <label class="check"><input id="swadeshMode" type="checkbox"> Swadesh-style 256</label>
+          <label class="check"><input id="meaningsMode" type="checkbox"> Meanings mode</label>
+        </div>
+
+        <div id="meaningsTextWrap" hidden>
+          <label for="meaningsText">Meanings, one per line</label>
+          <textarea id="meaningsText" spellcheck="true" placeholder="water&#10;fire&#10;stone"></textarea>
+        </div>
+
+        <details class="advanced" open>
+          <summary>Advanced features</summary>
+          <div class="grid two">
+            <label>Rewrite sequences <span class="hint">one per line, format target = replacement</span><textarea id="rewrites" spellcheck="false" placeholder="ti=chi&#10;nb=mb&#10;&lt;C&gt;=&amp;1&amp;1"></textarea></label>
+            <label>Forbidden sequences <span class="hint">one per line; variables and captures work</span><textarea id="forbidden" spellcheck="false" placeholder="kk&#10;pp&#10;VVV&#10;&lt;C&gt;&amp;1"></textarea></label>
+          </div>
+          <div class="grid three">
+            <label>Starts with<input id="starts" spellcheck="false" placeholder="s, m | $C$"></label>
+            <label>Contains<input id="contains" spellcheck="false" placeholder="a | $V$"></label>
+            <label>Ends with<input id="ends" spellcheck="false" placeholder="n, k | $S$"></label>
+          </div>
+          <p class="hint">Evaluation order: generation, rewrites, forbidden checks, positional literal adjustments, final filter checks.</p>
+        </details>
+
+        <div class="actions">
+          <button id="generateBtn" class="primary" type="button" onclick="return window.MorfGenerateClick ? window.MorfGenerateClick(event) : true;">Generate</button>
+          <button id="pickRandomBtn" type="button" onclick="return window.MorfPickRandomClick ? window.MorfPickRandomClick(event) : true;">Pick random</button>
+          <button id="alphabetizeBtn" type="button" onclick="return window.MorfAlphabetizeClick ? window.MorfAlphabetizeClick(event) : true;">Alphabetize</button>
+          <button id="selectAllBtn" type="button" onclick="return window.MorfSelectAllClick ? window.MorfSelectAllClick(event) : true;">Select all / copy</button>
+        </div>
+      </div>
+
+      <div class="outputGrid">
+        <section class="card">
+          <div class="cardHead"><strong>Generated words</strong><span id="resultStats" class="muted"></span></div>
+          <div id="results" class="results" aria-live="polite"></div>
+        </section>
+        <section class="card">
+          <label for="outputText">Plain output</label>
+          <textarea id="outputText" class="outputText" readonly></textarea>
+        </section>
+      </div>
+    </section>
+
+    <section id="translator" class="panel" aria-labelledby="translator-title">
+      <div class="panelHeader">
+        <div>
+          <h2 id="translator-title">Translator / Analyzer</h2>
+          <p>Segments words into lexicon morphemes, vocabulary entries, and unknown chunks. Quoted spans stay literal.</p>
+        </div>
+      </div>
+      <div class="card mainCard">
+        <label for="analysisInput">Text to analyze</label>
+        <input id="analysisInput" class="bigInput" spellcheck="false" placeholder='Example: unkali nalu "New York"'>
+        <div class="actions">
+          <button id="analyzeBtn" class="primary" type="button" onclick="return window.MorfAnalyzeClick ? window.MorfAnalyzeClick(event) : true;">Translate / Analyze</button>
+          <button id="addRawLexBtn" type="button">Add first token to Lexicon/Vocabulary</button>
+        </div>
+      </div>
+      <div id="analysisOutput" class="analysisOutput"></div>
+    </section>
+
+    <section id="lexicon" class="panel" aria-labelledby="lexicon-title">
+      <div class="panelHeader">
+        <div>
+          <h2 id="lexicon-title">Lexicon categories</h2>
+          <p>Morphemes live here: prefixes, roots, suffixes, stems, infixes, particles. Their letter codes work in generator patterns.</p>
+        </div>
+        <button id="addLexiconBtn" class="primary" type="button">+ New lexicon category</button>
+      </div>
+      <div id="lexiconList" class="stack"></div>
+    </section>
+
+    <section id="vocabulary" class="panel" aria-labelledby="vocabulary-title">
+      <div class="panelHeader">
+        <div>
+          <h2 id="vocabulary-title">Vocabulary categories</h2>
+          <p>Whole words live here. Use dot variables like <code>.n.</code>, <code>.verb.</code>, or <code>.place.</code> in generator patterns.</p>
+        </div>
+        <button id="addVocabularyBtn" class="primary" type="button">+ New vocabulary category</button>
+      </div>
+      <div id="vocabularyList" class="stack"></div>
+    </section>
+
+    <section id="patterns" class="panel" aria-labelledby="patterns-title">
+      <div class="panelHeader">
+        <div>
+          <h2 id="patterns-title">Additional patterns / graphemes</h2>
+          <p>Reusable phoneme or grapheme variables. These can reference each other and lexicon categories.</p>
+        </div>
+        <button id="addAdditionalBtn" class="primary" type="button">+ New pattern</button>
+      </div>
+      <div id="additionalList" class="stack"></div>
+    </section>
+
+    <section id="dictionary" class="panel" aria-labelledby="dictionary-title">
+      <div class="panelHeader">
+        <div>
+          <h2 id="dictionary-title">Dictionary</h2>
+          <p>Combined searchable view of Lexicon + Vocabulary, with variations, synonyms, and homonyms grouped into expandable cards.</p>
+        </div>
+        <span id="dictCount" class="pill">0 entries</span>
+      </div>
+      <div class="card">
+        <div class="grid three">
+          <label>Search<input id="dictionarySearch" placeholder="form, gloss, category"></label>
+          <label>Scope<select id="dictionaryScope"><option value="all">All</option><option value="lex">Lexicon only</option><option value="vocab">Vocabulary only</option></select></label>
+          <label>Category<select id="dictCategoryFilter"><option value="all">All categories</option></select></label>
+        </div>
+      </div>
+      <div id="dictionaryList" class="dictionaryList"></div>
+    </section>
+
+    <section id="settings" class="panel" aria-labelledby="settings-title">
+      <div class="panelHeader">
+        <div>
+          <h2 id="settings-title">Settings, export, import, font</h2>
+          <p>Everything is saved in your browser and can be exported as a <code>.morf</code> JSON settings file.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="actions">
+          <button id="exportBtn" class="primary" type="button">Export settings</button>
+          <button id="importBtn" type="button">Import settings</button>
+          <button id="copySettingsBtn" type="button">Copy settings JSON</button>
+          <button id="clearLocalBtn" type="button">Clear autosave</button>
+          <button id="resetDefaultsBtn" class="danger" type="button">Restore starter settings</button>
+          <input id="importFile" type="file" accept=".morf,.json,.awkw,.lngg,.lngd,application/json" hidden>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Output font</h3>
+        <div class="grid four">
+          <label>Font<select id="fontFamily">
+            <option value="system">System</option><option value="serif">Readable serif</option><option value="mono">Monospace</option><option value="arial">Arial</option><option value="verdana">Verdana</option><option value="tahoma">Tahoma</option><option value="trebuchet">Trebuchet</option><option value="georgia">Georgia</option><option value="garamond">Garamond</option><option value="palatino">Palatino</option><option value="courier">Courier New</option><option value="lucida">Lucida Console</option><option value="impact">Impact</option><option value="comic">Comic Sans</option><option value="papyrus">Papyrus</option><option value="times">Times New Roman</option><option value="century">Century Gothic</option><option value="bookman">Bookman</option><option value="candara">Candara</option><option value="optima">Optima</option><option value="didot">Didot</option><option value="futura">Futura</option>
+          </select></label>
+          <label>Size<input id="fontSize" type="number" min="10" max="48"></label>
+          <label class="check"><input id="fontBold" type="checkbox"> Bold</label>
+          <label class="check"><input id="fontItalic" type="checkbox"> Italic</label>
+        </div>
+      </div>
+    </section>
+
+    <section id="help" class="panel" aria-labelledby="help-title">
+      <div class="panelHeader">
+        <div>
+          <h2 id="help-title">Syntax help</h2>
+          <p>This is the Morf 2.0 grammar in one place.</p>
+        </div>
+      </div>
+      <div class="helpGrid">
+        <article class="card"><h3>Basic pattern syntax</h3><dl>
+          <dt><code>C V N</code></dt><dd>Uppercase letters expand additional patterns and/or Lexicon categories with that letter.</dd>
+          <dt><code>B = C/N/L/K</code> or <code>B = C, N, L, K</code></dt><dd>Nested variables keep resolving until they become real output; if <code>K = s[t/n]</code>, then <code>B</code> can generate <code>st</code> or <code>sn</code>.</dd>
+          <dt><code>a/e/i</code></dt><dd>Slash alternatives. One branch is chosen.</dd>
+          <dt><code>[CV]</code></dt><dd>Required group; everything inside acts as one unit.</dd>
+          <dt><code>(CV)</code></dt><dd>Optional group with a 50% chance.</dd>
+          <dt><code>a*5/e/i</code></dt><dd>Weights. The weighted option is more likely.</dd>
+          <dt><code>"[literal]"</code></dt><dd>Quotes escape special syntax characters.</dd>
+        </dl></article>
+        <article class="card"><h3>Morf additions</h3><dl>
+          <dt><code>.n.</code></dt><dd>Choose a whole word from a Vocabulary category.</dd>
+          <dt><code>&lt;CV&gt;&amp;</code></dt><dd>Capture then repeat the last capture.</dd>
+          <dt><code>&amp;1</code></dt><dd>Repeat the first capture.</dd>
+          <dt><code>C{3}</code>, <code>[CV]{2,4}</code></dt><dd>Exact and range repetition.</dd>
+          <dt><code>V!a,e</code></dt><dd>Exclude outputs from a variable.</dd>
+          <dt><code>[VV]^aa^ii</code></dt><dd>Awkwords-style local filtering.</dd>
+        </dl></article>
+        <article class="card"><h3>Advanced rules</h3><dl>
+          <dt><code>ti=chi</code></dt><dd>Rewrite generated text after building a word.</dd>
+          <dt><code>&lt;C&gt;=&amp;1&amp;1</code></dt><dd>Capture in rewrite targets, then reuse the captured text.</dd>
+          <dt><code>Cor=Nor</code></dt><dd>Variables in rewrites: generated consonant + or becomes generated nasal + or.</dd>
+          <dt><code>VVV</code></dt><dd>Forbidden sequence using variables.</dd>
+          <dt><code>&lt;C&gt;&amp;1</code></dt><dd>Forbidden repeated captured consonant, useful for blocking geminates.</dd>
+          <dt><code>$pep$</code></dt><dd>In Starts with / Ends with only, try to fit that literal into the existing pattern; if it cannot fit, prepend or append it. Contains stays a normal filter.</dd>
+        </dl></article>
+        <article class="card"><h3>Translator behavior</h3><p>The analyzer builds a tile set from Lexicon morphemes and Vocabulary whole words. Exact vocabulary matches are preferred, but mixed morpheme parses are still listed as alternatives.</p><p>Placement rules are strict: start entries only parse in an unbroken start-zone, middle entries cannot parse at the beginning or end, and end entries only parse in an ending-zone.</p><p>Click generated or translator segments to add them. Click dictionary entries to edit them, or move them between Vocabulary, Lexicon, and Additional patterns.</p></article>
+
+        <article class="card"><h3>Synonyms, homonyms, and variations</h3><dl>
+          <dt><code>mor[o/u] = water</code> or <code>dar/dra = before</code></dt><dd>Slash/optional forms are variation words inside one entry. The dictionary shows them under “Show variation words.”</dd>
+          <dt><code>dar,dra = before</code></dt><dd>Commas on the form side create separate synonym entries with the same exact meaning.</dd>
+          <dt><code>Bri = from</code> and <code>Feez = from</code></dt><dd>Separate entries with the same exact meaning are also treated as synonyms.</dd>
+          <dt><code>kyme = magic(al)</code> or <code>co(ur)a = beach/sand</code></dt><dd>Optional/slash meanings create multiple meanings for the same word, shown as additional meanings.</dd>
+        </dl></article>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="segmentDialog" class="segmentDialog" aria-labelledby="segmentDialogTitle">
+    <form method="dialog">
+      <div class="cardHead"><h2 id="segmentDialogTitle">Add segment</h2><button id="closeSegmentDialog" class="small" type="button">Close</button></div>
+      <label>Form<input id="segmentForm"></label>
+      <label>Gloss<input id="segmentGloss" placeholder="meaning / gloss"></label>
+      <div class="grid two" id="addCategoryControls">
+        <label>Lexicon category<select id="segmentLexCat"></select></label>
+        <label>Vocabulary category<select id="segmentVocCat"></select></label>
+      </div>
+      <div class="actions" id="addSegmentActions">
+        <button id="addSegmentLex" class="primary" type="button">Add to Lexicon</button>
+        <button id="addSegmentVoc" type="button">Add to Vocabulary</button>
+      </div>
+      <div id="editEntryControls" hidden>
+        <div class="actions">
+          <button id="finishEntryEdit" class="primary" type="button">Finish editing</button>
+        </div>
+        <details class="dictDetails moveEntryBox">
+          <summary>Move to…</summary>
+          <div class="grid two">
+            <label>Destination<select id="moveEntryKind">
+              <option value="lex">Lexicon</option>
+              <option value="vocab">Vocabulary</option>
+              <option value="pattern">Additional patterns</option>
+            </select></label>
+            <label id="moveLexWrap">Lexicon category<select id="moveLexCat"></select></label>
+            <label id="moveVocWrap" hidden>Vocabulary category<select id="moveVocCat"></select></label>
+            <label id="movePatternWrap" hidden>Additional pattern<select id="movePatternCat"></select></label>
+          </div>
+          <div class="actions"><button id="moveEntryBtn" type="button">Move entry</button></div>
+          <p class="hint">Moving to Additional patterns adds the form as an option inside the chosen pattern and removes this dictionary entry.</p>
+        </details>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="morf-core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
