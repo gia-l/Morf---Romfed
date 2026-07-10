@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-  <title>Morf 2.1.5</title>
+  <title>Morf 2.1.6</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="hero">
     <div>
-      <p class="eyebrow">Morf 2.1.5</p>
-      <h1>Morf 2.1.5</h1>
+      <p class="eyebrow">Morf 2.1.6</p>
+      <h1>Morf 2.1.6</h1>
       <p class="lede">Create words from sounds, morphemes, derivations, and meanings.</p>
     </div>
     <div id="status" class="status" role="status" aria-live="polite">Loading app scripts...</div>
@@ -207,18 +207,27 @@
       <div class="panelHeader">
         <div>
           <h2 id="settings-title">Settings, export, import, font</h2>
-          <p>Everything is saved in your browser and can be exported as a <code>.morf</code> JSON settings file.</p>
+          <p>Everything is saved in your browser and can be exported/imported as a <code>.morf</code> or <code>.json</code> settings file. A <code>.morf</code> file is regular JSON with a Morf extension.</p>
         </div>
       </div>
       <div class="card">
         <div class="actions">
           <button id="exportBtn" class="primary" type="button">Export settings</button>
-          <button id="importBtn" type="button">Import settings</button>
+          <button id="importBtn" type="button">Import .morf / .json file</button>
           <button id="copySettingsBtn" type="button">Copy settings JSON</button>
           <button id="clearLocalBtn" type="button">Clear autosave</button>
           <button id="resetDefaultsBtn" class="danger" type="button">Restore starter settings</button>
-          <input id="importFile" type="file" accept=".morf,.json,.awkw,.lngg,.lngd,application/json" hidden>
+          <input id="importFile" type="file" hidden>
         </div>
+        <p class="hint">Tip: if your phone or browser refuses to pick a <code>.morf</code> file, rename it to <code>.json</code>, or paste the file contents below.</p>
+      </div>
+      <div class="card">
+        <h3>Paste settings import</h3>
+        <label>Paste .morf / JSON settings here<textarea id="pasteSettingsBox" rows="6" placeholder='{
+  "app": "Morf 2.0",
+  "patterns": { ... }
+}'></textarea></label>
+        <div class="actions"><button id="importPastedSettingsBtn" type="button">Import pasted settings</button></div>
       </div>
       <div class="card">
         <h3>Output font</h3>

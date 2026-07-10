@@ -1071,6 +1071,33 @@
   }
 
   function bindSettings(){
+    function applyImportedSettings(rawText, sourceLabel){
+      const backup = M.normalizeState(state);
+      try {
+        if(rawText == null || !String(rawText).trim()) throw new Error('The imported settings text is empty.');
+        try { readGeneratorControlsFromDOM(); } catch(_) {}
+        const preserve = M.normalizeState(state);
+        const next = M.importState(String(rawText), { preserveFrom: preserve });
+        state = M.normalizeState(next);
+        if(next.meta && Array.isArray(next.meta.importWarnings) && state.meta){
+          state.meta.importWarnings = next.meta.importWarnings.slice();
+        }
+        lastResults = [];
+        syncControls();
+        saveLocal();
+        const warnings = state.meta && Array.isArray(state.meta.importWarnings) ? state.meta.importWarnings : [];
+        const importedFrom = sourceLabel ? ` from ${sourceLabel}` : '';
+        let msg = warnings.length ? `Imported settings${importedFrom}. Note: ${warnings[0]}` : `Imported settings${importedFrom}.`;
+        setStatus(msg, warnings.length ? 'info' : 'success');
+        return true;
+      } catch(err){
+        state = backup;
+        try { syncControls(); } catch(_) {}
+        setStatus('Import failed safely: ' + err.message, 'error');
+        return false;
+      }
+    }
+
     $('#exportBtn').addEventListener('click', () => {
       const json = M.exportState(state);
       download('morf-2-settings.morf', json, 'application/json');
@@ -1081,31 +1108,20 @@
       const file = e.target.files && e.target.files[0];
       if(!file) return;
       const reader = new FileReader();
-      reader.onload = () => {
-        const backup = M.normalizeState(state);
-        try {
-          try { readGeneratorControlsFromDOM(); } catch(_) {}
-          const preserve = M.normalizeState(state);
-          const next = M.importState(reader.result, { preserveFrom: preserve });
-          state = M.normalizeState(next);
-          if(next.meta && Array.isArray(next.meta.importWarnings) && state.meta){
-            state.meta.importWarnings = next.meta.importWarnings.slice();
-          }
-          lastResults = [];
-          syncControls();
-          saveLocal();
-          const warnings = state.meta && Array.isArray(state.meta.importWarnings) ? state.meta.importWarnings : [];
-          let msg = warnings.length ? 'Imported settings. Note: ' + warnings[0] : 'Imported settings.';
-          setStatus(msg, warnings.length ? 'info' : 'success');
-        } catch(err){
-          state = backup;
-          try { syncControls(); } catch(_) {}
-          setStatus('Import failed safely: ' + err.message, 'error');
-        }
-      };
+      reader.onload = () => applyImportedSettings(reader.result, file.name || 'file');
+      reader.onerror = () => setStatus('Could not read that file. Try renaming it to .json or paste its contents below.', 'error');
       reader.readAsText(file);
       e.target.value = '';
     });
+    const importPasteBtn = $('#importPastedSettingsBtn');
+    if(importPasteBtn){
+      importPasteBtn.addEventListener('click', () => {
+        const box = $('#pasteSettingsBox');
+        if(applyImportedSettings(box ? box.value : '', 'pasted JSON')){
+          if(box) box.value = '';
+        }
+      });
+    }
     $('#copySettingsBtn').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(M.exportState(state)); setStatus('Settings JSON copied.', 'success'); }
       catch(err){ download('morf-2-settings.morf', M.exportState(state), 'application/json'); }
