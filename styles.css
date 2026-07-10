@@ -150,3 +150,5 @@ main{padding:1rem clamp(1rem,4vw,3rem) 4rem}
 @media (max-width:700px){
   .pickedTag{width:max-content;max-width:100%}
 }
+.dictChip.nameTag{background:#19304a;border-color:#4e9fd1;color:#e8f7ff}
+.nestedDetails{margin-top:.4rem}

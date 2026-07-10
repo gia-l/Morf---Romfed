@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-  <title>Morf Version 3</title>
+  <title>Morf 3.3 name relations</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="hero">
     <div>
-      <p class="eyebrow">Version 3</p>
+      <p class="eyebrow">Version 3.3</p>
       <h1>Morf</h1>
       <p class="lede">Create words, names, derivations, and meanings from one connected language workshop.</p>
     </div>
@@ -182,10 +182,10 @@
           <h2 id="names-title">Name categories</h2>
           <p>Proper names live here: people, places, titles, groups, deities, and story-world names. Use double-dot variables like <code>..F..</code> or <code>..place..</code> in generator patterns.</p>
         </div>
-        <button id="addNameCategoryBtn" class="primary" type="button">+ New name category</button>
+        <button id="addNameCategoryBtn" class="primary" type="button" onclick="return window.MorfAddNameCategoryClick ? window.MorfAddNameCategoryClick(event) : false;">+ New name category</button>
       </div>
       <div class="card">
-        <p class="hint">Name entries use one line each: <code>Name = actual meaning | literal meaning | notes | nicknames</code>. Variations like <code>Jord[a/y]n</code> and <code>Carol[i/y]n(e)</code> stay in one name entry. Names can contain capitals and spaces without turning letters into pattern variables.</p>
+        <p class="hint">Name entries use one line each: <code>Name, Nickname = actual meaning</code>. Variations like <code>Jord[a/y]n</code> and <code>Carol[i/y]n(e)</code> expand into spelling variants. Nickname groups can use brackets, like <code>Elizabeth, [Liz/Lizzy/Elsa] = name meaning</code>.</p>
       </div>
       <div id="namesList" class="stack"></div>
     </section>

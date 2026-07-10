@@ -216,3 +216,26 @@ Morf exports `.morf` files, which are JSON settings files with a custom extensio
 Morf is static. You can host it on GitHub Pages, Netlify, Cloudflare Pages, Vercel, or any static web host.
 
 Open `index.html` for the full project version, or use the standalone HTML file if you want one single file containing the entire app.
+
+
+## Morf 3.3 name variation and nickname syntax
+
+Names support spelling variations and nickname relationships directly in the name entry line. The first comma-separated unit is the main name pattern; the part after the comma is treated as nicknames for that name. Slashes, brackets, and optional parentheses work as variation syntax, and capital letters are treated as literal name letters instead of pattern variables.
+
+Examples:
+
+```text
+Jord[a/y]n, Jordy = river child
+[Isabella/Isabel], Isa/Belle = devoted to beauty
+Sila, Sil = bird-associated
+```
+
+The Dictionary shows the first expanded spelling as the main entry, then places other spellings under **See variations** and nicknames under **See nicknames**. Nicknames also appear as their own searchable name cards with a **See source name** section. The Translator can recognize both full name entries and nickname forms.
+
+
+### 3.3 fix notes
+
+- Name entries now display the first expanded spelling as the card title instead of raw syntax such as `Joopemora/Jopemora`.
+- Name slashes, brackets, and optional parentheses expand without treating capital letters as pattern variables.
+- Name relationship dropdowns say **See related names** or **See source name** instead of using the normal Vocabulary word “synonyms.”
+- Bracketed nickname groups such as `Elizabeth, [Liz,Lizz(y/ie)/Elisabeth,Elsa] = meaning` are supported.

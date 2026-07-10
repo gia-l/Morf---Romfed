@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  const VERSION = 'Morf 3.0';
+  const VERSION = 'Morf 3.3';
   const MAX_ENUM = 750;
   const MAX_ATTEMPTS = 250;
 
@@ -83,6 +83,89 @@
     }
     parts.push(cur);
     return parts;
+  }
+
+
+
+  function findMatchingBracket(str, start, open, close){
+    let depth = 0;
+    let quote = '';
+    for(let i = start; i < str.length; i++){
+      const ch = str[i];
+      if(quote){ if(ch === quote) quote = ''; continue; }
+      if(ch === '"' || ch === "'"){ quote = ch; continue; }
+      if(ch === open) depth++;
+      else if(ch === close){
+        depth--;
+        if(depth === 0) return i;
+      }
+    }
+    return -1;
+  }
+
+  function expandNameSpelling(raw, limit=200){
+    raw = stripAffixMarks(String(raw || '').trim());
+    if(!raw) return [];
+    function combine(a, b){
+      const out = [];
+      for(const x of a){
+        for(const y of b){
+          out.push(x + y);
+          if(out.length >= limit) return capList(out, limit);
+        }
+      }
+      return capList(out, limit);
+    }
+    function expandSeq(str){
+      const top = splitTopLevel(str, '/').map(x => x.trim()).filter(x => x.length || str.includes('/'));
+      if(top.length > 1){
+        let out = [];
+        for(const part of top){
+          out.push(...expandSeq(part));
+          if(out.length >= limit) break;
+        }
+        return capList(out, limit);
+      }
+      let acc = [''];
+      for(let i = 0; i < str.length; i++){
+        const ch = str[i];
+        if(ch === '"' || ch === "'"){
+          const quote = ch;
+          let j = i + 1, lit = '';
+          while(j < str.length && str[j] !== quote){ lit += str[j++]; }
+          acc = combine(acc, [lit]);
+          i = j < str.length ? j : str.length;
+          continue;
+        }
+        if(ch === '['){
+          const j = findMatchingBracket(str, i, '[', ']');
+          if(j !== -1){
+            const inside = str.slice(i + 1, j);
+            const pieces = splitTopLevel(inside, '/').map(x => x.trim()).filter(Boolean);
+            let vals = [];
+            for(const piece of (pieces.length ? pieces : [inside])) vals.push(...expandSeq(piece));
+            acc = combine(acc, vals.length ? vals : ['']);
+            i = j;
+            continue;
+          }
+        }
+        if(ch === '('){
+          const j = findMatchingBracket(str, i, '(', ')');
+          if(j !== -1){
+            const inside = str.slice(i + 1, j);
+            const pieces = splitTopLevel(inside, '/').map(x => x.trim()).filter(Boolean);
+            let vals = [''];
+            for(const piece of (pieces.length ? pieces : [inside])) vals.push(...expandSeq(piece));
+            acc = combine(acc, vals);
+            i = j;
+            continue;
+          }
+        }
+        acc = combine(acc, [ch]);
+      }
+      return capList(acc, limit);
+    }
+    return capList(expandSeq(raw).map(stripAffixMarks).filter(Boolean), limit);
   }
 
   function splitList(str){
@@ -387,10 +470,7 @@
       ]}
     ],
     nameCategories: [
-      { id: 'name_F', variable: 'F', name: 'First names', type: 'person', entries: [
-        { id: 'ne_sila', name: 'Sila', actual: 'bird-associated personal name', literal: 'bird', notes: 'Starter example', nicknames: 'Sil' },
-        { id: 'ne_morobecc', name: 'Morobecc/Morbek', actual: 'coastal area', literal: 'water-like', notes: 'Starter place-name example', nicknames: '' }
-      ]}
+      { id: 'name_F', variable: 'F', name: 'First names', type: 'person', entries: [] }
     ],
     vocabularyCategories: [
       { id: 'voc_n', variable: 'n', name: 'Nouns', entries: [
@@ -837,7 +917,7 @@
       for(const cat of cats){ for(const en of cat.entries || []) entries.push({ cat, entry: en }); }
       if(!entries.length) return { ok: true, text: `..${clean}..`, segs: [{ form: `..${clean}..`, cat: 'literal', gloss: '' }] };
       const cand = pick(entries, this.rng);
-      const forms = this.expandStoredForm(cand.entry.name, { includeLex: false, includeVocab: false, includeAdditional: true });
+      const forms = expandNameSpelling(cand.entry.name, 200);
       const word = pick(forms, this.rng) || cand.entry.name || '';
       const gloss = cand.entry.actual || cand.entry.gloss || cand.entry.meaning || '';
       const literal = cand.entry.literal || '';
@@ -1011,7 +1091,7 @@
       const out = [];
       for(const cat of this.state.nameCategories || []){
         if((cat.variable || '') === clean || (cat.name || '') === clean || (cat.type || '') === clean){
-          for(const en of cat.entries || []) if(en.name) out.push(...this.expandStoredForm(en.name, { includeLex: false, includeVocab: false, includeAdditional: true }));
+          for(const en of cat.entries || []) if(en.name) out.push(...expandNameSpelling(en.name, ctx.limit));
         }
       }
       return capList(out.length ? out : [`..${clean}..`], ctx.limit);
@@ -1262,10 +1342,20 @@
     return true;
   }
 
-  function buildTiles(state, engine){
-    if(engine && engine._tilesCache) return engine._tilesCache;
+  function buildTiles(state, engine, options={}){
+    const mode = options.mode || 'word';
+    const includeVocab = options.includeVocab !== false;
+    const includeNames = options.includeNames !== false;
+    const includeLexicon = options.includeLexicon !== false;
+    const cacheKey = JSON.stringify({ mode, includeVocab, includeNames, includeLexicon });
+    if(engine){
+      engine._tilesCacheMap = engine._tilesCacheMap || {};
+      if(engine._tilesCacheMap[cacheKey]) return engine._tilesCacheMap[cacheKey];
+    }
     const tiles = [];
-    for(const cat of state.lexiconCategories || []){
+    if(includeLexicon) for(const cat of state.lexiconCategories || []){
+      if(mode === 'word' && cat.appliesWords === false) continue;
+      if(mode === 'name' && cat.appliesNames === false) continue;
       for(const en of cat.entries || []){
         const forms = engine.expandStoredForm(en.form, { includeLex: false, includeVocab: false });
         const meanings = entryMeanings(en);
@@ -1287,7 +1377,7 @@
         }
       }
     }
-    for(const cat of state.vocabularyCategories || []){
+    if(includeVocab) for(const cat of state.vocabularyCategories || []){
       for(const en of cat.entries || []){
         const forms = engine.expandStoredForm(en.word, { includeLex: false, includeVocab: false });
         const meanings = entryMeanings(en);
@@ -1309,10 +1399,12 @@
         }
       }
     }
-    for(const cat of state.nameCategories || []){
+    if(includeNames) for(const cat of state.nameCategories || []){
       for(const en of cat.entries || []){
-        const forms = engine.expandStoredForm(en.name, { includeLex: false, includeVocab: false, includeAdditional: true });
+        const forms = expandNameSpelling(en.name, 200);
         const gloss = en.actual || en.gloss || en.meaning || '';
+        let autoLiteral = '';
+        try { autoLiteral = (en.literal || (analyzeNameLiteral(en.name, state, { engine }).gloss || '')); } catch(_) { autoLiteral = en.literal || ''; }
         for(const form of forms){
           const name = String(form || '').trim();
           if(!name) continue;
@@ -1321,7 +1413,7 @@
             raw: en.name || name,
             gloss,
             meanings: gloss ? [gloss] : [],
-            literal: en.literal || '',
+            literal: autoLiteral || en.literal || '',
             cat: cat.name || cat.variable || 'Names',
             variable: cat.variable || '',
             placement: 'anywhere',
@@ -1330,11 +1422,53 @@
             entryId: en.id || ''
           });
         }
+        if(en.nicknames){
+          const nickForms = expandNameSpelling(en.nicknames, 200);
+          for(const form of nickForms){
+            const nick = String(form || '').trim();
+            if(!nick) continue;
+            tiles.push({
+              form: nick,
+              raw: en.nicknames || nick,
+              gloss,
+              meanings: gloss ? [gloss] : [],
+              literal: autoLiteral || en.literal || '',
+              cat: cat.name || cat.variable || 'Names',
+              variable: cat.variable || '',
+              placement: 'anywhere',
+              source: 'name',
+              nameType: (cat.type || 'name') + ' nickname',
+              isNickname: true,
+              nicknameOf: (forms && forms[0]) || en.name || '',
+              entryId: en.id || ''
+            });
+          }
+        }
       }
     }
     tiles.sort((a,b) => b.form.length - a.form.length || a.form.localeCompare(b.form));
-    if(engine) engine._tilesCache = tiles;
+    if(engine) engine._tilesCacheMap[cacheKey] = tiles;
     return tiles;
+  }
+
+  function analyzeNameLiteral(name, state, options={}){
+    const normalized = normalizeState(state);
+    const engine = options.engine || new PatternEngine(normalized);
+    const forms = expandNameSpelling(name, 200);
+    const raw = String((forms && forms[0]) || name || '').trim();
+    const clean = raw.toLocaleLowerCase();
+    if(!clean) return { word: raw, primary: [], alternatives: [], gloss: '' };
+    const analysis = analyzeWord(clean, normalized, {
+      engine,
+      maxResults: options.maxResults || 32,
+      mode: 'name',
+      includeVocab: false,
+      includeNames: false,
+      includeLexicon: true
+    });
+    analysis.word = raw;
+    analysis.gloss = glossForSegments(analysis.primary || []);
+    return analysis;
   }
 
   function tileAllowed(tile, word, index, prefixSpanLen, canCoverEndSpan){
@@ -1369,7 +1503,7 @@
   function analyzeWord(word, state, options={}){
     const clean = String(word || '').trim();
     const engine = options.engine || new PatternEngine(state);
-    const tiles = buildTiles(state, engine);
+    const tiles = buildTiles(state, engine, { mode: options.mode || 'word', includeVocab: options.includeVocab, includeNames: options.includeNames, includeLexicon: options.includeLexicon });
     const tileIndex = new Map();
     for(const tile of tiles){
       const first = tile && tile.form ? tile.form[0] : '';
@@ -1423,7 +1557,7 @@
       for(const tile of opts){
         const next = segs.slice();
         if(unknown) next.push({ form: unknown, cat: 'unknown', gloss: '?', source: 'unknown' });
-        next.push({ form: tile.form, cat: tile.cat, gloss: tile.gloss, meanings: tile.meanings || [], letter: tile.letter, variable: tile.variable, source: tile.source, placement: tile.placement });
+        next.push({ form: tile.form, cat: tile.cat, gloss: tile.gloss, meanings: tile.meanings || [], literal: tile.literal || '', actual: tile.gloss || '', letter: tile.letter, variable: tile.variable, source: tile.source, placement: tile.placement, nameType: tile.nameType || '', isNickname: !!tile.isNickname, nicknameOf: tile.nicknameOf || '' });
         const nextPrefix = tile.placement === 'start' ? index + tile.form.length : prefixSpanLen;
         dfs(index + tile.form.length, nextPrefix, '', next);
       }
@@ -1690,6 +1824,36 @@
   }
 
 
+  function splitNameMainAndNicknames(left){
+    const raw = String(left || '').trim();
+    if(!raw) return { main: '', nicknames: '' };
+    let depthSquare = 0, depthRound = 0, quote = '';
+    for(let i = 0; i < raw.length; i++){
+      const ch = raw[i];
+      if(quote){ if(ch === quote) quote = ''; continue; }
+      if(ch === '"' || ch === "'"){ quote = ch; continue; }
+      if(ch === '[') depthSquare++;
+      else if(ch === ']') depthSquare = Math.max(0, depthSquare - 1);
+      else if(ch === '(') depthRound++;
+      else if(ch === ')') depthRound = Math.max(0, depthRound - 1);
+      else if(ch === ',' && depthSquare === 0 && depthRound === 0){
+        return { main: raw.slice(0, i).trim(), nicknames: raw.slice(i + 1).trim() };
+      }
+    }
+    return { main: raw, nicknames: '' };
+  }
+
+  function normalizeNicknameSpec(spec){
+    let s = String(spec || '').trim();
+    if(!s) return '';
+    // If the user starts a nickname group with [ but forgets the final ], be forgiving.
+    if(s.startsWith('[') && !s.endsWith(']')) s += ']';
+    // A bracketed nickname group is just a compact variation list.
+    if(s.startsWith('[') && s.endsWith(']')) s = s.slice(1, -1).trim();
+    // Top-level commas inside nickname lists mean more nickname alternatives.
+    return splitTopLevel(s, ',').map(x => x.trim()).filter(Boolean).join('/');
+  }
+
   function parseNameEntryLineMany(line){
     const raw = String(line || '').trim();
     if(!raw || raw.startsWith('#') || raw.startsWith('//')) return [];
@@ -1700,16 +1864,28 @@
     const actual = parts[0] || '';
     const literal = parts[1] || '';
     const notes = parts[2] || '';
-    const nicknames = parts[3] || '';
-    // Comma means separate name entries; slash/brackets/parentheses stay as variations of one entry.
-    return splitTopLevel(left, ',').map(s => s.trim()).filter(Boolean).map(name => ({ id: uid('ne'), name, actual, literal, notes, nicknames }));
+    const explicitNicknames = parts[3] || '';
+
+    // Name syntax:
+    //   Jord[a/y]n = meaning                         one entry with spelling variants
+    //   Elizabeth, Liz/Lizzie = meaning              one name with nicknames
+    //   Elizabeth, [Liz,Lizz(y/ie)/Elisabeth,Elsa]   forgiving grouped nickname list
+    // Slashes/brackets/parentheses on the main name expand as spelling variants.
+    const parsed = splitNameMainAndNicknames(left);
+    const main = parsed.main;
+    if(!main) return [];
+    const commaNicknames = normalizeNicknameSpec(parsed.nicknames);
+    const fieldNicknames = normalizeNicknameSpec(explicitNicknames);
+    const nicknames = uniqueList([commaNicknames, fieldNicknames].filter(Boolean)).join('/');
+    return [{ id: uid('ne'), name: main, actual, literal, notes, nicknames }];
   }
 
   function nameEntriesToText(entries){
     return (entries || []).map(e => {
-      const bits = [e.actual || e.gloss || e.meaning || '', e.literal || '', e.notes || '', e.nicknames || ''];
+      const left = [e.name || '', e.nicknames || ''].filter(Boolean).join(', ');
+      const bits = [e.actual || e.gloss || e.meaning || '', e.literal || '', e.notes || ''];
       while(bits.length && !bits[bits.length - 1]) bits.pop();
-      return `${e.name || ''}${bits.length ? ' = ' + bits.join(' | ') : ''}`;
+      return `${left}${bits.length ? ' = ' + bits.join(' | ') : ''}`;
     }).join('\n');
   }
 
@@ -1932,6 +2108,7 @@
     generateWords,
     analyzeWord,
     analyzeText,
+    analyzeNameLiteral,
     glossForSegments,
     parseRewriteRules,
     applyRewriteRules,
@@ -1944,6 +2121,7 @@
     splitTopLevel,
     splitList,
     stripAffixMarks,
+    expandNameSpelling,
     expandGlossText,
     entryMeanings,
     entryGloss,

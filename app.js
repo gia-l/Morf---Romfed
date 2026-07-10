@@ -2,7 +2,7 @@
   'use strict';
 
   const M = window.MorfCore;
-  const STORE_KEY = 'morf-3-settings-v1-names';
+  const STORE_KEY = 'morf-3-1-settings';
   let state = M.normalizeState(M.DEFAULT_STATE);
   let lastResults = [];
   let lastStats = {};
@@ -440,6 +440,7 @@
           <span class="resultAddButtons">
             <button class="small quickAddWord" type="button" data-prefer="vocab" data-form="${escapeHtml(item.word)}" data-gloss="${quickGloss}">Add as duplicate/synonym to Vocabulary</button>
             <button class="small quickAddWord" type="button" data-prefer="lex" data-form="${escapeHtml(item.word)}" data-gloss="${quickGloss}">Add as duplicate/synonym to Lexicon</button>
+            <button class="small quickAddWord" type="button" data-prefer="name" data-form="${escapeHtml(item.word)}" data-gloss="${quickGloss}">Add as duplicate/variant to Names</button>
           </span>
         </div>
         <div class="segments" aria-label="Segments for ${escapeHtml(item.word)}">${segmentsHtml || '<span class="muted">No segmentation</span>'}</div>
@@ -465,9 +466,13 @@
   function segmentHtml(seg){
     if(!seg || !seg.form) return '';
     const source = seg.source || seg.cat || 'segment';
-    const label = `${seg.cat || source}${seg.gloss ? ': ' + seg.gloss : ''}`;
+    const labelParts = [`${seg.cat || source}${seg.gloss ? ': ' + seg.gloss : ''}`];
+    if(seg.literal) labelParts.push('literal: ' + seg.literal);
+    if(seg.actual && seg.actual !== seg.gloss) labelParts.push('actual: ' + seg.actual);
+    if(seg.isNickname && seg.nicknameOf) labelParts.push('nickname of: ' + seg.nicknameOf);
+    const label = labelParts.filter(Boolean).join(' · ');
     const shownCat = source === 'generated' ? '?' : (seg.cat || source);
-    return `<button class="segment" type="button" data-form="${escapeHtml(seg.form)}" data-gloss="${escapeHtml(seg.gloss === '?' ? '' : (seg.gloss || ''))}" title="${escapeHtml(label)}">
+    return `<button class="segment" type="button" data-form="${escapeHtml(seg.form)}" data-gloss="${escapeHtml(seg.gloss === '?' ? '' : (seg.gloss || ''))}" data-literal="${escapeHtml(seg.literal || '')}" data-actual="${escapeHtml(seg.actual || seg.gloss || '')}" data-nickname-of="${escapeHtml(seg.nicknameOf || '')}" title="${escapeHtml(label)}">
       <span class="segForm">${escapeHtml(seg.form)}</span><span class="segCat">${escapeHtml(shownCat)}</span>
     </button>`;
   }
@@ -482,13 +487,13 @@
       }
       const quickWord = e.target.closest('.quickAddWord');
       if(quickWord){
-        selectedSegment = { form: quickWord.dataset.form || '', gloss: quickWord.dataset.gloss || '', prefer: quickWord.dataset.prefer || '' };
+        selectedSegment = { form: quickWord.dataset.form || '', gloss: quickWord.dataset.gloss || '', prefer: quickWord.dataset.prefer || '', literal: quickWord.dataset.literal || '', actual: quickWord.dataset.actual || '' };
         openSegmentDialog(selectedSegment, selectedSegment.prefer);
         return;
       }
       const seg = e.target.closest('.segment');
       if(seg){
-        selectedSegment = { form: seg.dataset.form || seg.textContent.trim(), gloss: seg.dataset.gloss || '' };
+        selectedSegment = { form: seg.dataset.form || seg.textContent.trim(), gloss: seg.dataset.gloss || '', literal: seg.dataset.literal || '', actual: seg.dataset.actual || '' };
         openSegmentDialog(selectedSegment);
       }
     });
@@ -561,7 +566,8 @@
         <label>Name<input class="nameCatName" value="${escapeHtml(c.name || '')}"></label>
         <label>Type<input class="nameType" value="${escapeHtml(c.type || '')}" placeholder="person, place, title..."></label>
       </div>
-      <label>Name entries <span class="hint">one per line: Name = actual meaning | literal meaning | notes | nicknames</span><textarea class="nameEntries" spellcheck="false">${escapeHtml(M.nameEntriesToText ? M.nameEntriesToText(c.entries || []) : '')}</textarea></label>
+      <label>Name entries <span class="hint">one per line: Name, Nickname = actual meaning. Literal analysis is detected from Lexicon automatically.</span><textarea class="nameEntries" spellcheck="false" placeholder="Sila, Sil = bird-associated
+Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntriesToText(c.entries || []) : '')}</textarea></label>
     </section>`).join('') || '<div class="notice">No name categories yet.</div>';
   }
 
@@ -579,11 +585,7 @@
       renderVocabulary(); populateCategorySelects(); debounceSave();
     });
     const addNameBtn = $('#addNameCategoryBtn');
-    if(addNameBtn) addNameBtn.addEventListener('click', () => {
-      state.nameCategories = state.nameCategories || [];
-      state.nameCategories.push({ id: M.uid('name'), variable: 'N', name: 'New names', type: 'name', entries: [] });
-      renderNames(); populateCategorySelects(); debounceSave();
-    });
+    if(addNameBtn) addNameBtn.addEventListener('click', addNameCategory);
     $('#resetDefaultsBtn').addEventListener('click', () => {
       if(confirm('Restore the starter Morf settings? This replaces the current local settings.')){
         state = M.normalizeState(M.DEFAULT_STATE);
@@ -800,11 +802,22 @@
     const dialog = $('#segmentDialog');
     $('#segmentForm').value = seg.form || '';
     $('#segmentGloss').value = seg.gloss || '';
+    const literalInfo = $('#segmentLiteralInfo');
+    if(literalInfo){
+      let detected = seg.literal || '';
+      if(!detected && prefer === 'name' && M.analyzeNameLiteral){
+        try { detected = (M.analyzeNameLiteral(seg.form || '', state).gloss || ''); } catch(_) { detected = ''; }
+      }
+      literalInfo.hidden = !detected;
+      literalInfo.innerHTML = detected ? `<strong>Detected literal meaning:</strong> ${escapeHtml(detected)}${seg.gloss ? `<br><strong>Actual meaning:</strong> ${escapeHtml(seg.gloss)}` : ''}` : '';
+    }
     populateCategorySelects();
     setSegmentDialogMode('add');
-    $('#segmentDialogTitle').textContent = prefer === 'lex' ? 'Add to Lexicon' : (prefer === 'vocab' ? 'Add to Vocabulary' : 'Add segment');
-    $('#addSegmentLex').classList.toggle('primary', prefer !== 'vocab');
+    $('#segmentDialogTitle').textContent = prefer === 'lex' ? 'Add to Lexicon' : (prefer === 'vocab' ? 'Add to Vocabulary' : (prefer === 'name' ? 'Add to Names' : 'Add segment'));
+    $('#addSegmentLex').classList.toggle('primary', prefer !== 'vocab' && prefer !== 'name');
     $('#addSegmentVoc').classList.toggle('primary', prefer === 'vocab');
+    const addNameBtnOpen = $('#addSegmentName');
+    if(addNameBtnOpen) addNameBtnOpen.classList.toggle('primary', prefer === 'name');
     dialog.showModal();
   }
 
@@ -835,6 +848,15 @@
     $('#segmentDialogTitle').textContent = 'Edit dictionary entry';
     $('#segmentForm').value = scope === 'lex' ? (ref.entry.form || '') : (scope === 'vocab' ? (ref.entry.word || '') : (ref.entry.name || ''));
     $('#segmentGloss').value = scope === 'name' ? (ref.entry.actual || ref.entry.gloss || ref.entry.meaning || '') : (ref.entry.gloss || ref.entry.meaning || '');
+    const literalInfo = $('#segmentLiteralInfo');
+    if(literalInfo){
+      let detected = ref.entry.literal || '';
+      if(scope === 'name' && !detected && M.analyzeNameLiteral){
+        try { detected = (M.analyzeNameLiteral(ref.entry.name || '', state).gloss || ''); } catch(_) { detected = ''; }
+      }
+      literalInfo.hidden = !(scope === 'name' && detected);
+      literalInfo.innerHTML = (scope === 'name' && detected) ? `<strong>Detected literal meaning:</strong> ${escapeHtml(detected)}` : '';
+    }
     setSegmentDialogMode('edit');
     const moveKind = $('#moveEntryKind');
     if(moveKind){
@@ -992,6 +1014,26 @@
     }
   }
 
+  function nameEntryVariants(raw, engine){
+    try {
+      const vals = M.expandNameSpelling ? M.expandNameSpelling(raw, 200) : engine.expandStoredForm(raw, { includeLex: false, includeVocab: false, includeAdditional: true });
+      return uniq(vals.map(v => M.stripAffixMarks(v))).filter(Boolean);
+    } catch(err){
+      const stripped = M.stripAffixMarks(raw || '');
+      return stripped ? [stripped] : [];
+    }
+  }
+
+  function nicknameVariants(raw, engine){
+    if(!raw) return [];
+    try {
+      const vals = M.expandNameSpelling ? M.expandNameSpelling(raw, 200) : engine.expandStoredForm(raw, { includeLex: false, includeVocab: false, includeAdditional: true });
+      return uniq(vals.map(v => M.stripAffixMarks(v))).filter(Boolean);
+    } catch(err){
+      return uniq(String(raw || '').split(/[\n,\/]+/).map(v => M.stripAffixMarks(v))).filter(Boolean);
+    }
+  }
+
   function collectDictionaryRows(){
     const engine = new M.PatternEngine(state);
     const rows = [];
@@ -1007,7 +1049,7 @@
           catId: cat.id,
           entryId,
           form: variants[0] || M.stripAffixMarks(en.form || ''),
-          displayForm: (variants.length > 1 && en.form) ? en.form : (variants[0] || M.stripAffixMarks(en.form || '')),
+          displayForm: variants[0] || M.stripAffixMarks(en.form || ''),
           rawForm: en.form || '',
           variants,
           meanings,
@@ -1032,7 +1074,7 @@
           catId: cat.id,
           entryId,
           form: variants[0] || M.stripAffixMarks(en.word || ''),
-          displayForm: (variants.length > 1 && en.word) ? en.word : (variants[0] || M.stripAffixMarks(en.word || '')),
+          displayForm: variants[0] || M.stripAffixMarks(en.word || ''),
           rawForm: en.word || '',
           variants,
           meanings,
@@ -1048,30 +1090,63 @@
 
     for(const cat of state.nameCategories || []){
       for(const en of cat.entries || []){
-        const variants = entryVariants(en.name || '', engine);
+        const variants = nameEntryVariants(en.name || '', engine);
         const meanings = [en.actual || en.gloss || en.meaning || ''].filter(Boolean);
+        let detectedLiteral = en.literal || '';
+        if(!detectedLiteral && M.analyzeNameLiteral){
+          try { detectedLiteral = (M.analyzeNameLiteral(en.name || '', state, { engine }).gloss || ''); } catch(_) { detectedLiteral = ''; }
+        }
         const entryId = en.id || en.name;
+        const primaryName = variants[0] || (en.name || '');
+        const nicknameList = nicknameVariants(en.nicknames || '', engine);
         rows.push({
           id: `name:${cat.id}:${entryId}`,
           type: 'Name',
           scope: 'name',
           catId: cat.id,
           entryId,
-          form: variants[0] || (en.name || ''),
-          displayForm: (variants.length > 1 && en.name) ? en.name : (variants[0] || en.name || ''),
+          form: primaryName,
+          displayForm: primaryName,
           rawForm: en.name || '',
           variants,
           meanings,
           gloss: meanings.join(' / ') || '',
-          literal: en.literal || '',
+          literal: detectedLiteral || en.literal || '',
           notes: en.notes || '',
           nicknames: en.nicknames || '',
+          nicknameVariants: nicknameList,
           cat: cat.name || cat.variable || 'Names',
           code: `..${cat.variable || '?'}..`,
           place: 'name',
           detail: cat.type ? `${cat.type} name` : 'proper name',
           categoryId: `name:${cat.id}`
         });
+        for(const nick of nicknameList){
+          rows.push({
+            id: `nickname:${cat.id}:${entryId}:${nick}`,
+            type: 'Nickname',
+            scope: 'name',
+            catId: cat.id,
+            entryId,
+            form: nick,
+            displayForm: nick,
+            rawForm: nick,
+            variants: [nick],
+            meanings,
+            gloss: meanings.join(' / ') || '',
+            literal: detectedLiteral || en.literal || '',
+            notes: en.notes || '',
+            nicknames: '',
+            nicknameVariants: [],
+            nicknameOf: primaryName,
+            nicknameOfVariants: variants,
+            cat: cat.name || cat.variable || 'Names',
+            code: `..${cat.variable || '?'}..`,
+            place: 'nickname',
+            detail: cat.type ? `${cat.type} nickname` : 'nickname',
+            categoryId: `name:${cat.id}`
+          });
+        }
       }
     }
 
@@ -1142,7 +1217,7 @@
         row.form, row.displayForm, row.rawForm, row.gloss, row.cat, row.code, row.type, row.detail,
         ...(row.variants || []), ...(row.meanings || []),
         ...(row.synonyms || []).map(s => `${s.form} ${s.gloss} ${s.cat}`),
-        ...(row.additionalMeanings || [])
+        ...(row.additionalMeanings || []), ...(row.nicknameVariants || [])
       ].join(' ').toLowerCase();
       return !q || hay.includes(q);
     });
@@ -1154,12 +1229,18 @@
       const meaningHtml = (row.meanings && row.meanings.length)
         ? row.meanings.map(m => dictChip(m, 'meaning')).join('')
         : '<span class="muted">No meaning yet</span>';
-      const variationsHtml = variants.length > 1 ? `<details class="dictDetails"><summary>Show variation words (${variants.length})</summary><div class="dictChips">${variants.map(v => `<button type="button" class="dictVariantWord dictEdit" ${editAttrs(row)}>${escapeHtml(v)}</button>`).join('')}</div></details>` : '';
+      const primaryVariant = row.displayForm || row.form || '';
+      const variantList = variants.filter(v => String(v) !== String(primaryVariant));
+      const variationsHtml = variantList.length ? `<details class="dictDetails"><summary>See variations (${variantList.length})</summary><div class="synonymList">${variantList.map(v => `<button type="button" class="synonymItem dictEdit" ${editAttrs(row)}><strong>${escapeHtml(v)}</strong><span>${escapeHtml(row.gloss || '(no meaning)')}</span><em>${escapeHtml(row.type)} variation</em>${row.scope === 'name' && (row.nicknameVariants || []).length ? `<details class="dictDetails nestedDetails"><summary>See nicknames (${(row.nicknameVariants || []).length})</summary><div class="dictChips">${(row.nicknameVariants || []).map(n => dictChip(n, 'nameTag')).join('')}</div></details>` : ''}</button>`).join('')}</div></details>` : '';
       const addMeanings = row.additionalMeanings || [];
       const meaningsDetails = addMeanings.length ? `<details class="dictDetails"><summary>Show additional meanings (${addMeanings.length})</summary><div class="dictChips">${addMeanings.map(m => dictChip(m, 'extraMeaning')).join('')}</div></details>` : '';
       const synonyms = row.synonyms || [];
-      const nameExtraHtml = row.scope === 'name' ? `<div class="dictChips">${row.literal ? dictChip('literal: ' + row.literal, 'extraMeaning') : ''}${row.nicknames ? dictChip('nicknames: ' + row.nicknames, 'extraMeaning') : ''}${row.notes ? dictChip('notes: ' + row.notes, 'extraMeaning') : ''}</div>` : '';
-      const synonymsHtml = synonyms.length ? `<details class="dictDetails"><summary>See synonyms (${synonyms.length})</summary><div class="synonymList">${synonyms.map(s => `<button type="button" class="synonymItem dictEdit" ${editAttrs(s)}><strong>${escapeHtml(s.displayForm || s.form)}</strong><span>${escapeHtml(s.gloss || '(no meaning)')}</span><em>${escapeHtml(s.type)} · ${escapeHtml(s.cat)}</em></button>`).join('')}</div></details>` : '';
+      const nickList = row.nicknameVariants || [];
+      const nicknamesHtml = row.scope === 'name' && nickList.length ? `<details class="dictDetails"><summary>See nicknames (${nickList.length})</summary><div class="synonymList">${nickList.map(n => `<button type="button" class="synonymItem dictEdit" ${editAttrs(row)}><strong>${escapeHtml(n)}</strong><span>${escapeHtml(row.gloss || '(no meaning)')}</span><em>nickname of ${escapeHtml(row.displayForm || row.form)}</em></button>`).join('')}</div></details>` : '';
+      const sourceNamesHtml = row.scope === 'name' && row.nicknameOf ? `<details class="dictDetails"><summary>See source name</summary><div class="synonymList"><button type="button" class="synonymItem dictEdit" ${editAttrs(row)}><strong>${escapeHtml(row.nicknameOf)}</strong><span>${escapeHtml(row.gloss || '(no meaning)')}</span><em>full/source name</em></button></div></details>` : '';
+      const nameExtraHtml = row.scope === 'name' ? `<div class="dictChips">${row.literal ? dictChip('literal: ' + row.literal, 'extraMeaning') : ''}${row.notes ? dictChip('notes: ' + row.notes, 'extraMeaning') : ''}</div>` : '';
+      const synonymTitle = row.scope === 'name' ? 'See related names' : 'See synonyms';
+      const synonymsHtml = synonyms.length ? `<details class="dictDetails"><summary>${synonymTitle} (${synonyms.length})</summary><div class="synonymList">${synonyms.map(s => `<button type="button" class="synonymItem dictEdit" ${editAttrs(s)}><strong>${escapeHtml(s.displayForm || s.form)}</strong><span>${escapeHtml(s.gloss || '(no meaning)')}</span><em>${escapeHtml(s.type)} · ${escapeHtml(s.cat)}</em></button>`).join('')}</div></details>` : '';
       return `<article class="dictCard">
         <div class="dictMain">
           <button type="button" class="dictWord dictEdit" ${editAttrs(row)} title="Edit this dictionary entry">${escapeHtml(row.displayForm || row.form || '(blank)')}</button>
@@ -1171,7 +1252,7 @@
           ${row.code ? dictChip(row.code) : ''}
           ${dictChip(row.detail)}
         </div>
-        ${variationsHtml}${meaningsDetails}${nameExtraHtml}${synonymsHtml}
+        ${variationsHtml}${meaningsDetails}${nicknamesHtml}${sourceNamesHtml}${nameExtraHtml}${synonymsHtml}
       </article>`;
     }).join('') : '<div class="notice">No matching dictionary entries.</div>';
     $('#dictCount').textContent = `${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`;
@@ -1268,6 +1349,8 @@
     setStatus('Loaded a mixed phonology + morpheme sample pattern.', 'success');
   }
 
+  window.MorfAddNameCategoryClick = addNameCategory;
+
   window.MorfGenerateClick = function(evt){
     if(evt){ evt.preventDefault(); if(evt.stopImmediatePropagation) evt.stopImmediatePropagation(); }
     generate();
@@ -1299,6 +1382,11 @@
     renderDictionary,
     getState: () => state
   };
+
+  document.addEventListener('click', function(e){
+    const btn = e.target && e.target.closest ? e.target.closest('#addNameCategoryBtn') : null;
+    if(btn) addNameCategory(e);
+  }, true);
 
   function init(){
     const steps = [
