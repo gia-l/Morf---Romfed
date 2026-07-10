@@ -2,7 +2,7 @@
   'use strict';
 
   const M = window.MorfCore;
-  const STORE_KEY = 'morf-3-1-settings';
+  const STORE_KEY = 'morf-3-4-1-settings';
   let state = M.normalizeState(M.DEFAULT_STATE);
   let lastResults = [];
   let lastStats = {};
@@ -1347,8 +1347,84 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
     });
   }
 
+  function applyImportedSettings(rawText, sourceLabel){
+    const backup = M.normalizeState(state);
+    try {
+      if(rawText == null || !String(rawText).trim()) throw new Error('The imported settings text is empty.');
+      try { readGeneratorControlsFromDOM(); } catch(_) {}
+      const preserve = M.normalizeState(state);
+      const next = M.importState(String(rawText), { preserveFrom: preserve });
+      state = M.normalizeState(next);
+      if(next.meta && Array.isArray(next.meta.importWarnings) && state.meta){
+        state.meta.importWarnings = next.meta.importWarnings.slice();
+      }
+      lastResults = [];
+      syncControls();
+      saveLocal();
+      const warnings = state.meta && Array.isArray(state.meta.importWarnings) ? state.meta.importWarnings : [];
+      const importedFrom = sourceLabel ? ` from ${sourceLabel}` : '';
+      const msg = warnings.length ? `Imported settings${importedFrom}. Note: ${warnings[0]}` : `Imported settings${importedFrom}.`;
+      setStatus(msg, warnings.length ? 'info' : 'success');
+      return true;
+    } catch(err){
+      state = backup;
+      try { syncControls(); } catch(_) {}
+      setStatus('Import failed safely: ' + err.message, 'error');
+      return false;
+    }
+  }
+
+  function exportSettings(){
+    try {
+      const json = M.exportState(state);
+      download('morf-3-settings.morf', json, 'application/json');
+      setStatus('Exported settings file.', 'success');
+    } catch(err){
+      setStatus('Export failed: ' + err.message, 'error');
+    }
+  }
+
+  function triggerImportPicker(){
+    const input = $('#importFile');
+    if(!input){ setStatus('Import file picker was not found.', 'error'); return; }
+    input.click();
+  }
+
+  function readImportFileFromInput(input){
+    const file = input && input.files && input.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => applyImportedSettings(reader.result, file.name || 'file');
+    reader.onerror = () => setStatus('Could not read that file. Try renaming it to .json or paste its contents below.', 'error');
+    reader.readAsText(file);
+    try { input.value = ''; } catch(_) {}
+  }
+
+  function importPastedSettings(){
+    const box = $('#pasteSettingsBox');
+    if(applyImportedSettings(box ? box.value : '', 'pasted JSON')){
+      if(box) box.value = '';
+    }
+  }
+
+  async function copySettings(){
+    try {
+      await navigator.clipboard.writeText(M.exportState(state));
+      setStatus('Settings JSON copied.', 'success');
+    } catch(err){
+      download('morf-3-settings.morf', M.exportState(state), 'application/json');
+    }
+  }
+
+  function clearLocalSettings(){
+    if(confirm('Clear the browser autosave for Morf?')){
+      try { localStorage.removeItem(STORE_KEY); setStatus('Autosave cleared.', 'success'); }
+      catch(err){ setStatus('Autosave was already unavailable here.', 'info'); }
+    }
+  }
+
   function bindSettings(){
-    function applyImportedSettings(rawText, sourceLabel){
+    function applyImportedSettingsLocal(rawText, sourceLabel){
       const backup = M.normalizeState(state);
       try {
         if(rawText == null || !String(rawText).trim()) throw new Error('The imported settings text is empty.');
@@ -1427,6 +1503,44 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
     setStatus('Loaded a mixed phonology + morpheme sample pattern.', 'success');
   }
 
+  function installEmergencyButtonRouter(){
+    if(window.MorfEmergencyButtonsInstalled) return;
+    window.MorfEmergencyButtonsInstalled = true;
+    const route = {
+      generateBtn: generate,
+      sampleBtn: loadSample,
+      pickRandomBtn: pickRandomResult,
+      alphabetizeBtn: alphabetizeResults,
+      selectAllBtn: selectCopyOutput,
+      analyzeBtn: analyzeInput,
+      exportBtn: exportSettings,
+      importBtn: triggerImportPicker,
+      importPastedSettingsBtn: importPastedSettings,
+      copySettingsBtn: copySettings,
+      clearLocalBtn: clearLocalSettings,
+      addNameCategoryBtn: addNameCategory
+    };
+    document.addEventListener('click', function(e){
+      const target = e.target && e.target.closest ? e.target.closest('button') : null;
+      if(!target || !target.id || !route[target.id]) return;
+      e.preventDefault();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      try { route[target.id](e); }
+      catch(err){
+        setStatus('Button issue: ' + err.message, 'error');
+        try { console.error(err); } catch(_) {}
+      }
+    }, true);
+    document.addEventListener('change', function(e){
+      if(e.target && e.target.id === 'importFile'){
+        if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+        readImportFileFromInput(e.target);
+      }
+    }, true);
+  }
+
+  installEmergencyButtonRouter();
+
   window.MorfAddNameCategoryClick = addNameCategory;
 
   window.MorfGenerateClick = function(evt){
@@ -1452,6 +1566,31 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
   window.MorfSelectAllClick = function(evt){
     if(evt){ evt.preventDefault(); if(evt.stopImmediatePropagation) evt.stopImmediatePropagation(); }
     selectCopyOutput();
+    return false;
+  };
+  window.MorfExportClick = function(evt){
+    if(evt){ evt.preventDefault(); if(evt.stopImmediatePropagation) evt.stopImmediatePropagation(); }
+    exportSettings();
+    return false;
+  };
+  window.MorfImportClick = function(evt){
+    if(evt){ evt.preventDefault(); if(evt.stopImmediatePropagation) evt.stopImmediatePropagation(); }
+    triggerImportPicker();
+    return false;
+  };
+  window.MorfImportPastedClick = function(evt){
+    if(evt){ evt.preventDefault(); if(evt.stopImmediatePropagation) evt.stopImmediatePropagation(); }
+    importPastedSettings();
+    return false;
+  };
+  window.MorfCopySettingsClick = function(evt){
+    if(evt){ evt.preventDefault(); if(evt.stopImmediatePropagation) evt.stopImmediatePropagation(); }
+    copySettings();
+    return false;
+  };
+  window.MorfClearLocalClick = function(evt){
+    if(evt){ evt.preventDefault(); if(evt.stopImmediatePropagation) evt.stopImmediatePropagation(); }
+    clearLocalSettings();
     return false;
   };
   window.MorfApp = {

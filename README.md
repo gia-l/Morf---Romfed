@@ -231,3 +231,8 @@ Sila, Sil = bird-associated
 ```
 
 The Dictionary shows the first expanded spelling as the main entry, then places other spellings under **See variations** and nicknames under **See nicknames**. The Translator can recognize both full name entries and nickname forms.
+
+
+## 3.4.1 button fix
+
+This maintenance release keeps the 3.4 variation/name behavior and adds a hardened button router so Generate, Translate / Analyze, Import, Export, copy, and other action buttons still work even if a normal event binding step fails in a mobile browser or hosted preview.

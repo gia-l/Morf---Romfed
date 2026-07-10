@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-  <title>Morf 3.4 variation fix</title>
+  <title>Morf 3.4.1 button fix</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="hero">
     <div>
-      <p class="eyebrow">Version 3.4</p>
+      <p class="eyebrow">Version 3.4.1</p>
       <h1>Morf</h1>
       <p class="lede">Create words, names, derivations, and meanings from one connected language workshop.</p>
     </div>
@@ -228,9 +228,9 @@
       </div>
       <div class="card">
         <div class="actions">
-          <button id="exportBtn" class="primary" type="button">Export settings</button>
-          <button id="importBtn" type="button">Import .morf / .json file</button>
-          <button id="copySettingsBtn" type="button">Copy settings JSON</button>
+          <button id="exportBtn" class="primary" type="button" onclick="return window.MorfExportClick ? window.MorfExportClick(event) : true;">Export settings</button>
+          <button id="importBtn" type="button" onclick="return window.MorfImportClick ? window.MorfImportClick(event) : true;">Import .morf / .json file</button>
+          <button id="copySettingsBtn" type="button" onclick="return window.MorfCopySettingsClick ? window.MorfCopySettingsClick(event) : true;">Copy settings JSON</button>
           <button id="clearLocalBtn" type="button">Clear autosave</button>
           <button id="resetDefaultsBtn" class="danger" type="button">Restore starter settings</button>
           <input id="importFile" type="file" hidden>
@@ -243,7 +243,7 @@
   "app": "Morf",
   "patterns": { ... }
 }'></textarea></label>
-        <div class="actions"><button id="importPastedSettingsBtn" type="button">Import pasted settings</button></div>
+        <div class="actions"><button id="importPastedSettingsBtn" type="button" onclick="return window.MorfImportPastedClick ? window.MorfImportPastedClick(event) : true;">Import pasted settings</button></div>
       </div>
       <div class="card">
         <h3>Output font</h3>

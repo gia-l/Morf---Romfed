@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  const VERSION = 'Morf 3.4';
+  const VERSION = 'Morf 3.4.1';
   const MAX_ENUM = 750;
   const MAX_ATTEMPTS = 250;
 
