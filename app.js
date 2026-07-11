@@ -2,7 +2,7 @@
   'use strict';
 
   const M = window.MorfCore;
-  const STORE_KEY = 'morf-3-4-1-settings';
+  const STORE_KEY = 'morf-3-4-2-button-rescue-settings';
   let state = M.normalizeState(M.DEFAULT_STATE);
   let lastResults = [];
   let lastStats = {};
@@ -1377,7 +1377,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
   function exportSettings(){
     try {
       const json = M.exportState(state);
-      download('morf-3-settings.morf', json, 'application/json');
+      download('morf-3-4-2-settings.morf', json, 'application/json');
       setStatus('Exported settings file.', 'success');
     } catch(err){
       setStatus('Export failed: ' + err.message, 'error');
@@ -1412,7 +1412,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
       await navigator.clipboard.writeText(M.exportState(state));
       setStatus('Settings JSON copied.', 'success');
     } catch(err){
-      download('morf-3-settings.morf', M.exportState(state), 'application/json');
+      download('morf-3-4-2-settings.morf', M.exportState(state), 'application/json');
     }
   }
 
@@ -1453,7 +1453,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
 
     $('#exportBtn').addEventListener('click', () => {
       const json = M.exportState(state);
-      download('morf-3-settings.morf', json, 'application/json');
+      download('morf-3-4-2-settings.morf', json, 'application/json');
       setStatus('Exported settings file.', 'success');
     });
     $('#importBtn').addEventListener('click', () => $('#importFile').click());
@@ -1477,7 +1477,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
     }
     $('#copySettingsBtn').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(M.exportState(state)); setStatus('Settings JSON copied.', 'success'); }
-      catch(err){ download('morf-3-settings.morf', M.exportState(state), 'application/json'); }
+      catch(err){ download('morf-3-4-2-settings.morf', M.exportState(state), 'application/json'); }
     });
     $('#clearLocalBtn').addEventListener('click', () => {
       if(confirm('Clear the browser autosave for Morf?')){

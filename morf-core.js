@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  const VERSION = 'Morf 3.4.1';
+  const VERSION = 'Morf 3.4.2';
   const MAX_ENUM = 750;
   const MAX_ATTEMPTS = 250;
 
@@ -1343,6 +1343,7 @@
   }
 
   function buildTiles(state, engine, options={}){
+    if(!engine) engine = new PatternEngine(state);
     const mode = options.mode || 'word';
     const includeVocab = options.includeVocab !== false;
     const includeNames = options.includeNames !== false;

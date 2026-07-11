@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-  <title>Morf 3.4.1 button fix</title>
+  <title>Morf 3.4.2</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="hero">
     <div>
-      <p class="eyebrow">Version 3.4.1</p>
+      <p class="eyebrow">Version 3.4.2</p>
       <h1>Morf</h1>
       <p class="lede">Create words, names, derivations, and meanings from one connected language workshop.</p>
     </div>
@@ -30,45 +30,6 @@
     <button class="tab" type="button" data-tab="help">Syntax help</button>
   </nav>
 
-  <script>
-    // Tiny independent tab switcher. This runs separately from the main app so tabs
-    // keep working even if another script hits an error.
-    window.MorfSwitchTab = function(tabId){
-      var tabs = document.querySelectorAll('.tab[data-tab]');
-      var panels = document.querySelectorAll('.panel');
-      for(var i = 0; i < tabs.length; i++){
-        tabs[i].classList.toggle('active', tabs[i].getAttribute('data-tab') === tabId);
-        tabs[i].setAttribute('aria-selected', tabs[i].getAttribute('data-tab') === tabId ? 'true' : 'false');
-      }
-      for(var j = 0; j < panels.length; j++){
-        panels[j].classList.remove('active');
-        panels[j].hidden = true;
-      }
-      var panel = document.getElementById(tabId) || document.getElementById('tab-' + tabId);
-      if(panel){
-        panel.classList.add('active');
-        panel.hidden = false;
-      }
-      if(tabId === 'dictionary' && typeof window.renderMorfDictionary === 'function') window.renderMorfDictionary();
-      try { history.replaceState(null, '', '#' + tabId); } catch(e) {}
-      return false;
-    };
-    window.MorfTabs = { show: window.MorfSwitchTab, bind: function(){} };
-    document.addEventListener('click', function(e){
-      var btn = e.target && e.target.closest ? e.target.closest('.tab[data-tab]') : null;
-      if(!btn) return;
-      e.preventDefault();
-      window.MorfSwitchTab(btn.getAttribute('data-tab'));
-    });
-    document.addEventListener('DOMContentLoaded', function(){
-      var panels = document.querySelectorAll('.panel');
-      for(var i = 0; i < panels.length; i++){
-        if(!panels[i].classList.contains('active')) panels[i].hidden = true;
-      }
-      var initial = (location.hash || '').replace('#','');
-      if(initial && (document.getElementById(initial) || document.getElementById('tab-' + initial))) window.MorfSwitchTab(initial);
-    });
-  </script>
 
   <main>
     <section id="generator" class="panel active" aria-labelledby="generator-title">
@@ -116,10 +77,10 @@
         </details>
 
         <div class="actions">
-          <button id="generateBtn" class="primary" type="button" onclick="return window.MorfGenerateClick ? window.MorfGenerateClick(event) : true;">Generate</button>
-          <button id="pickRandomBtn" type="button" onclick="return window.MorfPickRandomClick ? window.MorfPickRandomClick(event) : true;">Pick random</button>
-          <button id="alphabetizeBtn" type="button" onclick="return window.MorfAlphabetizeClick ? window.MorfAlphabetizeClick(event) : true;">Alphabetize</button>
-          <button id="selectAllBtn" type="button" onclick="return window.MorfSelectAllClick ? window.MorfSelectAllClick(event) : true;">Select all / copy</button>
+          <button id="generateBtn" class="primary" type="button" onclick="if(!window.MorfSafeButton && !window.MorfGenerateClick){var s=document.getElementById('status'); if(s) s.textContent='App scripts are still loading. Refresh once if this stays here.'; return false;} return (window.MorfSafeButton ? window.MorfSafeButton(event) : window.MorfGenerateClick(event));">Generate</button>
+          <button id="pickRandomBtn" type="button" onclick="if(!window.MorfSafeButton && !window.MorfPickRandomClick){var s=document.getElementById('status'); if(s) s.textContent='App scripts are still loading. Refresh once if this stays here.'; return false;} return (window.MorfSafeButton ? window.MorfSafeButton(event) : window.MorfPickRandomClick(event));">Pick random</button>
+          <button id="alphabetizeBtn" type="button" onclick="if(!window.MorfSafeButton && !window.MorfAlphabetizeClick){var s=document.getElementById('status'); if(s) s.textContent='App scripts are still loading. Refresh once if this stays here.'; return false;} return (window.MorfSafeButton ? window.MorfSafeButton(event) : window.MorfAlphabetizeClick(event));">Alphabetize</button>
+          <button id="selectAllBtn" type="button" onclick="if(!window.MorfSafeButton && !window.MorfSelectAllClick){var s=document.getElementById('status'); if(s) s.textContent='App scripts are still loading. Refresh once if this stays here.'; return false;} return (window.MorfSafeButton ? window.MorfSafeButton(event) : window.MorfSelectAllClick(event));">Select all / copy</button>
         </div>
       </div>
 
@@ -146,7 +107,7 @@
         <label for="analysisInput">Text to analyze</label>
         <input id="analysisInput" class="bigInput" spellcheck="false" placeholder='Example: unkali nalu "New York"'>
         <div class="actions">
-          <button id="analyzeBtn" class="primary" type="button" onclick="return window.MorfAnalyzeClick ? window.MorfAnalyzeClick(event) : true;">Translate / Analyze</button>
+          <button id="analyzeBtn" class="primary" type="button" onclick="if(!window.MorfSafeButton && !window.MorfAnalyzeClick){var s=document.getElementById('status'); if(s) s.textContent='App scripts are still loading. Refresh once if this stays here.'; return false;} return (window.MorfSafeButton ? window.MorfSafeButton(event) : window.MorfAnalyzeClick(event));">Translate / Analyze</button>
           <button id="addRawLexBtn" type="button">Add first token to Lexicon/Vocabulary</button>
         </div>
       </div>
@@ -228,9 +189,9 @@
       </div>
       <div class="card">
         <div class="actions">
-          <button id="exportBtn" class="primary" type="button" onclick="return window.MorfExportClick ? window.MorfExportClick(event) : true;">Export settings</button>
-          <button id="importBtn" type="button" onclick="return window.MorfImportClick ? window.MorfImportClick(event) : true;">Import .morf / .json file</button>
-          <button id="copySettingsBtn" type="button" onclick="return window.MorfCopySettingsClick ? window.MorfCopySettingsClick(event) : true;">Copy settings JSON</button>
+          <button id="exportBtn" class="primary" type="button" onclick="if(!window.MorfSafeButton && !window.MorfExportClick){var s=document.getElementById('status'); if(s) s.textContent='App scripts are still loading. Refresh once if this stays here.'; return false;} return (window.MorfSafeButton ? window.MorfSafeButton(event) : window.MorfExportClick(event));">Export settings</button>
+          <button id="importBtn" type="button" onclick="if(!window.MorfSafeButton && !window.MorfImportClick){var s=document.getElementById('status'); if(s) s.textContent='App scripts are still loading. Refresh once if this stays here.'; return false;} return (window.MorfSafeButton ? window.MorfSafeButton(event) : window.MorfImportClick(event));">Import .morf / .json file</button>
+          <button id="copySettingsBtn" type="button" onclick="if(!window.MorfSafeButton && !window.MorfCopySettingsClick){var s=document.getElementById('status'); if(s) s.textContent='App scripts are still loading. Refresh once if this stays here.'; return false;} return (window.MorfSafeButton ? window.MorfSafeButton(event) : window.MorfCopySettingsClick(event));">Copy settings JSON</button>
           <button id="clearLocalBtn" type="button">Clear autosave</button>
           <button id="resetDefaultsBtn" class="danger" type="button">Restore starter settings</button>
           <input id="importFile" type="file" hidden>
@@ -243,7 +204,7 @@
   "app": "Morf",
   "patterns": { ... }
 }'></textarea></label>
-        <div class="actions"><button id="importPastedSettingsBtn" type="button" onclick="return window.MorfImportPastedClick ? window.MorfImportPastedClick(event) : true;">Import pasted settings</button></div>
+        <div class="actions"><button id="importPastedSettingsBtn" type="button" onclick="if(!window.MorfSafeButton && !window.MorfImportPastedClick){var s=document.getElementById('status'); if(s) s.textContent='App scripts are still loading. Refresh once if this stays here.'; return false;} return (window.MorfSafeButton ? window.MorfSafeButton(event) : window.MorfImportPastedClick(event));">Import pasted settings</button></div>
       </div>
       <div class="card">
         <h3>Output font</h3>
@@ -344,7 +305,10 @@
     </form>
   </dialog>
 
+  <script src="tab-switcher.js"></script>
+  <script src="button-rescue.js"></script>
   <script src="morf-core.js"></script>
   <script src="app.js"></script>
+  <script src="version-fix.js"></script>
 </body>
 </html>
