@@ -1,4 +1,4 @@
-# Morf 3.4.3
+# Morf 3.4.4
 
 Morf is a browser-based language and name-building workshop. It combines an Awkwords-style word generator, reusable grapheme patterns, lexicon morphemes, whole-word vocabulary, proper names, a dictionary, and a translator/analyzer.
 
@@ -15,7 +15,7 @@ This package is the full project version. Upload all files together when hosting
 - `version-fix.js` — visible build marker
 - `morf_3_4_3_standalone.html` — all-in-one backup file
 
-## 3.4.3 notes
+## 3.4.4 notes
 
 - Import now updates the full UI immediately, including Lexicon, Vocabulary, Names, Additional Patterns, and Dictionary.
 - Import accepts `.morf`, `.json`, and pasted JSON/settings text.
@@ -38,3 +38,8 @@ This package is the full project version. Upload all files together when hosting
 ## Hosting
 
 For GitHub Pages, upload the contents of this folder to your repository root and enable Pages from the `main` branch/root folder.
+
+
+## 3.4.4 notes
+
+This package fixes a startup error where the Names category button referenced `addNameCategory` before it existed. That error could prevent imports, generated words, lexicon categories, vocabulary, names, and additional patterns from rendering after load. The full ZIP includes every project file, not only changed files.

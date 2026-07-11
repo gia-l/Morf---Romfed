@@ -2,7 +2,7 @@
   'use strict';
 
   const M = window.MorfCore;
-  const STORE_KEY = 'morf-3-4-3-button-rescue-settings';
+  const STORE_KEY = 'morf-3-4-4-scriptfix-settings';
   let state = M.normalizeState(M.DEFAULT_STATE);
   let lastResults = [];
   let lastStats = {};
@@ -569,6 +569,33 @@
       <label>Name entries <span class="hint">one per line: Name, Nickname = actual meaning. Literal analysis is detected from Lexicon automatically.</span><textarea class="nameEntries" spellcheck="false" placeholder="Sila, Sil = bird-associated
 Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntriesToText(c.entries || []) : '')}</textarea></label>
     </section>`).join('') || '<div class="notice">No name categories yet.</div>';
+  }
+
+
+  function addNameCategory(e){
+    if(e){ e.preventDefault(); if(e.stopImmediatePropagation) e.stopImmediatePropagation(); }
+    state.nameCategories = state.nameCategories || [];
+    let variable = 'F';
+    const used = new Set(state.nameCategories.map(c => String(c.variable || '').trim()).filter(Boolean));
+    if(used.has(variable)){
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+      variable = alphabet.find(ch => !used.has(ch)) || ('N' + (state.nameCategories.length + 1));
+    }
+    const cat = {
+      id: M.uid('name'),
+      variable,
+      name: 'New names',
+      type: 'person name',
+      entries: []
+    };
+    state.nameCategories.push(cat);
+    renderNames();
+    populateCategorySelects();
+    renderDictionary();
+    debounceSave();
+    if(window.MorfSwitchTab) window.MorfSwitchTab('names');
+    setStatus('Added a name category.', 'success');
+    return false;
   }
 
   function bindEditors(){
@@ -1377,7 +1404,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
   function exportSettings(){
     try {
       const json = M.exportState(state);
-      download('morf-3-4-3-settings.morf', json, 'application/json');
+      download('morf-3-4-4-settings.morf', json, 'application/json');
       setStatus('Exported settings file.', 'success');
     } catch(err){
       setStatus('Export failed: ' + err.message, 'error');
@@ -1412,7 +1439,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
       await navigator.clipboard.writeText(M.exportState(state));
       setStatus('Settings JSON copied.', 'success');
     } catch(err){
-      download('morf-3-4-3-settings.morf', M.exportState(state), 'application/json');
+      download('morf-3-4-4-settings.morf', M.exportState(state), 'application/json');
     }
   }
 
@@ -1453,7 +1480,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
 
     $('#exportBtn').addEventListener('click', () => {
       const json = M.exportState(state);
-      download('morf-3-4-3-settings.morf', json, 'application/json');
+      download('morf-3-4-4-settings.morf', json, 'application/json');
       setStatus('Exported settings file.', 'success');
     });
     $('#importBtn').addEventListener('click', () => $('#importFile').click());
@@ -1477,7 +1504,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
     }
     $('#copySettingsBtn').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(M.exportState(state)); setStatus('Settings JSON copied.', 'success'); }
-      catch(err){ download('morf-3-4-3-settings.morf', M.exportState(state), 'application/json'); }
+      catch(err){ download('morf-3-4-4-settings.morf', M.exportState(state), 'application/json'); }
     });
     $('#clearLocalBtn').addEventListener('click', () => {
       if(confirm('Clear the browser autosave for Morf?')){

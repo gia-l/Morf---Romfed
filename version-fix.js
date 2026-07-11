@@ -1,8 +1,7 @@
 (function(){
-  function ready(fn){ if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn); else fn(); }
-  ready(function(){
-    var versionTargets = document.querySelectorAll('.eyebrow');
-    versionTargets.forEach(function(el){ if(/Version 3\.4(?!\.3)/.test(el.textContent)) el.textContent = 'Version 3.4.3'; });
-    window.MorfBuild = '3.4.3-importfix-full';
-  });
+  try {
+    document.title = 'Morf 3.4.4';
+    document.querySelectorAll('.eyebrow').forEach(function(el){ el.textContent = 'Version 3.4.4'; });
+    window.MorfBuild = '3.4.4-scriptfix-full';
+  } catch(err) {}
 })();

@@ -1,4 +1,4 @@
-/* Morf 3.4.3 pre-app button rescue.
+/* Morf 3.4.4 pre-app button rescue.
    This registers before the main app router, so core buttons still work if a later
    script/listener crashes or stops the normal handlers. It uses MorfCore directly
    and leaves the existing UI + syntax alone. */
@@ -10,7 +10,7 @@
     clearLocalBtn: 'clearLocal', resetDefaultsBtn: 'reset', sampleBtn: 'sample', addNameCategoryBtn: 'addNameCat',
     addLexiconBtn: 'addLexCat', addVocabularyBtn: 'addVocCat', addAdditionalBtn: 'addPattern'
   };
-  var STORE_KEY = 'morf-3-4-3-button-rescue-settings';
+  var STORE_KEY = 'morf-3-4-4-scriptfix-settings';
   var lastResults = [];
   var lastStats = {};
   function $(id){ return document.getElementById(id); }
@@ -33,6 +33,10 @@
     if(!st) return;
     Object.keys(st).forEach(function(k){ delete st[k]; });
     Object.assign(st, JSON.parse(JSON.stringify(newState)));
+  }
+  function refreshMainUi(){
+    try { if(window.MorfApp && typeof window.MorfApp.syncControls === 'function') window.MorfApp.syncControls(); } catch(_) {}
+    try { if(window.MorfApp && typeof window.MorfApp.renderDictionary === 'function') window.MorfApp.renderDictionary(); } catch(_) {}
   }
   function textVal(id){ var el=$(id); return el ? el.value : ''; }
   function checked(id){ var el=$(id); return !!(el && el.checked); }
@@ -117,7 +121,7 @@
     return false;
   }
   function download(name, text){ var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'application/json'})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500); }
-  function doExport(){ var M=core(); if(!M){ status('MorfCore did not load.', 'error'); return false; } var st=readDomIntoState(safeState()); window.__MorfSafeState=st; mutateAppState(st); download('morf-3-4-3-settings.morf', M.exportState(st)); status('Exported settings file.','success'); return false; }
+  function doExport(){ var M=core(); if(!M){ status('MorfCore did not load.', 'error'); return false; } var st=readDomIntoState(safeState()); window.__MorfSafeState=st; mutateAppState(st); download('morf-3-4-4-settings.morf', M.exportState(st)); status('Exported settings file.','success'); return false; }
   function doImport(){ var inp=$('importFile'); if(!inp){ status('Import input is missing.', 'error'); return false; } inp.removeAttribute('accept'); inp.click(); return false; }
   function applyImported(text, label){
     var M=core();
@@ -142,9 +146,9 @@
     }
   }
   function doPasteImport(){ var box=$('pasteSettingsBox'); if(!box || !box.value.trim()){ status('Paste settings JSON first.', 'error'); return false; } if(applyImported(box.value, 'pasted settings')) box.value=''; return false; }
-  function doCopySettings(){ var M=core(), st=readDomIntoState(safeState()), json=M.exportState(st); if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(json).then(function(){status('Settings JSON copied.','success');}, function(){download('morf-3-4-3-settings.morf', json);}); } else download('morf-3-4-3-settings.morf', json); return false; }
+  function doCopySettings(){ var M=core(), st=readDomIntoState(safeState()), json=M.exportState(st); if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(json).then(function(){status('Settings JSON copied.','success');}, function(){download('morf-3-4-4-settings.morf', json);}); } else download('morf-3-4-4-settings.morf', json); return false; }
   function doClear(){ try{ localStorage.removeItem(STORE_KEY); }catch(_){} window.__MorfSafeState=null; status('Autosave cleared for this build.','success'); return false; }
-  function doReset(){ var M=core(); if(!M) return false; window.__MorfSafeState=M.normalizeState(M.DEFAULT_STATE); mutateAppState(window.__MorfSafeState); writeControls(window.__MorfSafeState); status('Starter settings restored.','success'); return false; }
+  function doReset(){ var M=core(); if(!M) return false; window.__MorfSafeState=M.normalizeState(M.DEFAULT_STATE); mutateAppState(window.__MorfSafeState); writeControls(window.__MorfSafeState); refreshMainUi(); status('Starter settings restored.','success'); return false; }
   function doSample(){ var st=safeState(); st.generator=st.generator||{}; st.advanced=st.advanced||{}; st.generator.pattern='P R S / [CV]{2}(C) / <CV>&(CV) / .n.'; st.advanced.rewrites='ti=chi\ntu=tsu\n<C>=&1&1'; st.advanced.forbidden='kkk\nppp\nVVV'; writeControls(st); status('Loaded generic sample pattern.','success'); return false; }
   function writeControls(st){
     if($('pattern')) $('pattern').value = (st.generator&&st.generator.pattern)||'';
@@ -154,10 +158,10 @@
     if($('meaningsTextWrap')) $('meaningsTextWrap').hidden=!(st.generator&&st.generator.meaningsMode);
     ['rewrites','forbidden','starts','contains','ends'].forEach(function(id){ if($(id)) $(id).value=(st.advanced&&st.advanced[id])||''; });
   }
-  function addNameCat(){ var M=core(), st=safeState(); st.nameCategories=st.nameCategories||[]; st.nameCategories.push({id:M.uid('name'), variable:'F', name:'New names', type:'person name', entries:[]}); mutateAppState(st); if(window.MorfSwitchTab) window.MorfSwitchTab('names'); status('Added a name category.','success'); return false; }
-  function addLexCat(){ var M=core(), st=safeState(); st.lexiconCategories=st.lexiconCategories||[]; st.lexiconCategories.push({id:M.uid('lex'), letter:'X', name:'New category', placement:'anywhere', entries:[]}); mutateAppState(st); status('Added a lexicon category.','success'); return false; }
-  function addVocCat(){ var M=core(), st=safeState(); st.vocabularyCategories=st.vocabularyCategories||[]; st.vocabularyCategories.push({id:M.uid('voc'), variable:'x', name:'New vocabulary', entries:[]}); mutateAppState(st); status('Added a vocabulary category.','success'); return false; }
-  function addPattern(){ var M=core(), st=safeState(); st.additionalPatterns=st.additionalPatterns||[]; st.additionalPatterns.push({id:M.uid('add'), letter:'X', name:'New pattern', pattern:'a/e/i'}); mutateAppState(st); status('Added an additional pattern.','success'); return false; }
+  function addNameCat(){ var M=core(), st=safeState(); st.nameCategories=st.nameCategories||[]; st.nameCategories.push({id:M.uid('name'), variable:'F', name:'New names', type:'person name', entries:[]}); mutateAppState(st); refreshMainUi(); if(window.MorfSwitchTab) window.MorfSwitchTab('names'); status('Added a name category.','success'); return false; }
+  function addLexCat(){ var M=core(), st=safeState(); st.lexiconCategories=st.lexiconCategories||[]; st.lexiconCategories.push({id:M.uid('lex'), letter:'X', name:'New category', placement:'anywhere', entries:[]}); mutateAppState(st); refreshMainUi(); status('Added a lexicon category.','success'); return false; }
+  function addVocCat(){ var M=core(), st=safeState(); st.vocabularyCategories=st.vocabularyCategories||[]; st.vocabularyCategories.push({id:M.uid('voc'), variable:'x', name:'New vocabulary', entries:[]}); mutateAppState(st); refreshMainUi(); status('Added a vocabulary category.','success'); return false; }
+  function addPattern(){ var M=core(), st=safeState(); st.additionalPatterns=st.additionalPatterns||[]; st.additionalPatterns.push({id:M.uid('add'), letter:'X', name:'New pattern', pattern:'a/e/i'}); mutateAppState(st); refreshMainUi(); status('Added an additional pattern.','success'); return false; }
   function doPick(){ if(!lastResults.length){ status('Generate words first, then pick random.','error'); return false; } lastResults.forEach(function(r){r.picked=false;}); var idx=Math.floor(Math.random()*lastResults.length); var item=lastResults.splice(idx,1)[0]; item.picked=true; lastResults.unshift(item); renderResults(lastResults,lastStats,safeState()); status('Random pick moved to the top.','success'); return false; }
   function doAlpha(){ if(!lastResults.length){ status('Generate words first, then alphabetize.','error'); return false; } lastResults.sort(function(a,b){return String(a.word).localeCompare(String(b.word));}); renderResults(lastResults,lastStats,safeState()); status('Alphabetized generated words.','success'); return false; }
   function doSelect(){ var out=$('outputText'); if(!out){ return false; } out.focus(); out.select(); try{ document.execCommand('copy'); status('Output selected/copied.','success'); }catch(e){ status('Output selected.','info'); } return false; }
