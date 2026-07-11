@@ -1,4 +1,4 @@
-# Morf 3.5
+# Morf 3.5.1
 
 Morf is a browser-based language workshop for creating words, names, derivations, meanings, and dictionary entries in one connected place. It can be used for constructed languages, worldbuilding, fantasy and sci-fi names, tabletop settings, fictional cultures, naming systems, or any project where you want words to feel like they came from the same language.
 
@@ -19,7 +19,7 @@ The `index.html` uses the versioned `3-5` filenames to avoid browsers loading ol
 
 ## What's new in 3.5
 
-Version 3.5 refines the Names syntax without changing the rest of Morf's syntax.
+Version 3.5.1 refines the Names syntax without changing the rest of Morf's syntax.
 
 ### Name source units and nicknames
 
@@ -132,3 +132,10 @@ Names can have actual meanings, literal analysis from Lexicon pieces, spelling v
 
 Morf exports `.morf` files, which are JSON data with a custom extension. Import supports `.morf`, `.json`, pasted JSON, and older Morf-style exports where possible.
 
+
+
+### 3.5.1 generator polish
+
+- Generated result buttons are labeled plainly: **Add to Vocabulary**, **Add to Lexicon**, and **Add to Names**.
+- Generator results show their produced/detected pieces again, so a word like `unfov` can display as `un-fov` with clickable chunks.
+- Pattern-generated unknown chunks are collapsed into one useful piece instead of separate letters.
