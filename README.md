@@ -1,45 +1,37 @@
-# Morf 3.4.4
+# Morf 3.4.5 compatibility fix
 
-Morf is a browser-based language and name-building workshop. It combines an Awkwords-style word generator, reusable grapheme patterns, lexicon morphemes, whole-word vocabulary, proper names, a dictionary, and a translator/analyzer.
+Morf is a language-building workshop for generating words, storing morphemes and vocabulary, analyzing forms, and building names for conlangs, worldbuilding, fiction, games, and naming systems.
 
-This package is the full project version. Upload all files together when hosting on GitHub Pages or another static host.
+## What is in this full ZIP
 
-## Files
+Upload the full contents together when hosting on GitHub Pages or another static host:
 
-- `index.html` — the hosted page
-- `styles.css` — visual layout and mobile styling
-- `tab-switcher.js` — independent tab fallback
-- `button-rescue.js` — backup handlers for important buttons
-- `morf-core.js` — parser, generator, importer/exporter, analyzer core
-- `app.js` — UI rendering and editing logic
-- `version-fix.js` — visible build marker
-- `morf_3_4_3_standalone.html` — all-in-one backup file
+- `index.html`
+- `styles-3-4-5.css`
+- `tab-switcher-3-4-5.js`
+- `morf-core-3-4-5.js`
+- `button-rescue-3-4-5.js`
+- `app-3-4-5.js`
+- `version-fix-3-4-5.js`
+- legacy aliases: `styles.css`, `tab-switcher.js`, `morf-core.js`, `button-rescue.js`, `app.js`, `version-fix.js`
+- `morf_3_4_5_standalone.html`
 
-## 3.4.4 notes
+The `index.html` intentionally references the versioned JS/CSS filenames. That avoids browsers loading an older cached `app.js`, which was likely why the site still showed Version 3.4.3 and kept throwing `addNameCategory` errors.
 
-- Import now updates the full UI immediately, including Lexicon, Vocabulary, Names, Additional Patterns, and Dictionary.
-- Import accepts `.morf`, `.json`, and pasted JSON/settings text.
-- Starter data is generic English-style demo data instead of a private conlang.
-- The full ZIP includes every project file, not only changed files.
+## Fixes in 3.4.5
 
-## Basic syntax
+- Uses versioned script filenames to avoid stale browser/GitHub cache problems.
+- Exposes `addNameCategory` safely for older inline button calls.
+- Keeps a rescue implementation of the Names category button even if the main app script fails.
+- Improves old Morf v2 compatibility: imports without Names no longer crash or require a Names section.
+- Keeps the visible page version at `Version 3.4.5`.
+- Full ZIP includes every project file, not only changed files.
 
-- `C`, `V`, `N` etc. reference Additional Patterns or Lexicon category letters.
-- `.n.` references a Vocabulary category.
-- `..F..` references a Name category.
-- `[a/b]` is a required choice.
-- `(a/b)` is optional.
-- `{2}` and `{1,3}` repeat tokens/groups.
-- `<...>` captures generated text and `&1`, `&2`, or `&` repeat captures.
-- Rewrite rules use `old=new`.
-- Forbidden sequences reject generated words.
-- Starts/Contains/Ends are final-output filters. `$text$` can force Starts/Ends by fitting or prepending/appending.
+## Quick test
 
-## Hosting
+1. Upload all files to your GitHub Pages repo root.
+2. Open the site and check that the top says `Version 3.4.5`.
+3. Try `CV` in the generator.
+4. Import an old `.morf` or `.json` file.
+5. Check Lexicon, Vocabulary, Additional patterns, Names, and Dictionary.
 
-For GitHub Pages, upload the contents of this folder to your repository root and enable Pages from the `main` branch/root folder.
-
-
-## 3.4.4 notes
-
-This package fixes a startup error where the Names category button referenced `addNameCategory` before it existed. That error could prevent imports, generated words, lexicon categories, vocabulary, names, and additional patterns from rendering after load. The full ZIP includes every project file, not only changed files.
