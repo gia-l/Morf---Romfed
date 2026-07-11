@@ -1,42 +1,134 @@
-# Morf 3.4.6 compatibility fix
+# Morf 3.5
 
-Morf is a language-building workshop for generating words, storing morphemes and vocabulary, analyzing forms, and building names for conlangs, worldbuilding, fiction, games, and naming systems.
+Morf is a browser-based language workshop for creating words, names, derivations, meanings, and dictionary entries in one connected place. It can be used for constructed languages, worldbuilding, fantasy and sci-fi names, tabletop settings, fictional cultures, naming systems, or any project where you want words to feel like they came from the same language.
 
-## What is in this full ZIP
+This package is a full static website. Upload all files together to GitHub Pages or another static host.
 
-Upload the full contents together when hosting on GitHub Pages or another static host:
+## Files
 
-- `index.html`
-- `styles-3-4-6.css`
-- `tab-switcher-3-4-6.js`
-- `morf-core-3-4-6.js`
-- `button-rescue-3-4-6.js`
-- `app-3-4-6.js`
-- `version-fix-3-4-6.js`
-- legacy aliases: `styles.css`, `tab-switcher.js`, `morf-core.js`, `button-rescue.js`, `app.js`, `version-fix.js`
-- `morf_3_4_6_standalone.html`
+- `index.html` - main website file
+- `styles.css` and `styles-3-5.css` - styling
+- `morf-core.js` and `morf-core-3-5.js` - parser, generator, analyzer, import/export logic
+- `app.js` and `app-3-5.js` - user interface logic
+- `tab-switcher.js` and `tab-switcher-3-5.js` - tab fallback logic
+- `button-rescue.js` and `button-rescue-3-5.js` - backup button handlers
+- `version-fix.js` and `version-fix-3-5.js` - visible version label
+- `morf_3_5_standalone.html` - single-file backup version
 
-The `index.html` intentionally references the versioned JS/CSS filenames. That avoids browsers loading an older cached `app.js`, which was likely why the site still showed Version 3.4.3 and kept throwing `addNameCategory` errors.
+The `index.html` uses the versioned `3-5` filenames to avoid browsers loading older cached code.
 
-## Fixes in 3.4.6
+## What's new in 3.5
 
-- Uses versioned script filenames to avoid stale browser/GitHub cache problems.
-- Exposes `addNameCategory` safely for older inline button calls.
-- Keeps a rescue implementation of the Names category button even if the main app script fails.
-- Improves old Morf v2 compatibility: imports without Names no longer crash or require a Names section.
-- Keeps the visible page version at `Version 3.4.6`.
-- Full ZIP includes every project file, not only changed files.
+Version 3.5 refines the Names syntax without changing the rest of Morf's syntax.
 
-## Quick test
+### Name source units and nicknames
 
-1. Upload all files to your GitHub Pages repo root.
-2. Open the site and check that the top says `Version 3.4.6`.
-3. Try `CV` in the generator.
-4. Import an old `.morf` or `.json` file.
-5. Check Lexicon, Vocabulary, Additional patterns, Names, and Dictionary.
+In Names entries, a comma inside a name unit means the forms after it are nicknames:
 
+```text
+Isabella, Izzy/Issy = example personal name
+```
 
+This means `Isabella` is the source name, and `Izzy` and `Issy` are nicknames.
 
-## 3.4.6
+A top-level slash before a nickname comma creates another source name with the same meaning:
 
-Dictionary relationship chips for Names now show only the related name/nickname/source name instead of repeating the meaning and category metadata inside the chip. This keeps the mobile dictionary view less clunky.
+```text
+[Isabella, Izzy]/Issy = example personal name
+```
+
+This means `Isabella` has nickname `Izzy`, while `Issy` is a related source name with the same meaning, not a nickname.
+
+Brackets group complex name units:
+
+```text
+[Elizabeth,Lizzy,Liz/Lizz]/[[Elisabeth/Elsabet],Elsa] = example personal name
+```
+
+This creates:
+
+- `Elizabeth` with nicknames `Lizzy`, `Liz`, and `Lizz`
+- `Elisabeth` / `Elsabet` with nickname `Elsa`
+
+### Spelling variation syntax still works
+
+Use brackets or parentheses inside a name to create spelling variants:
+
+```text
+Jord[a/y]n = river-name
+Carolin(e) = example name
+```
+
+`Jord[a/y]n` expands to `Jordan` and `Jordyn`.
+`Carolin(e)` expands to `Carolin` and `Caroline`.
+
+## Core Morf systems
+
+### Additional Patterns
+
+Additional Patterns are reusable sound or spelling patterns, usually letter variables such as `C` and `V`.
+
+```text
+C = p/t/k/m/n/s/l/r
+V = a/e/i/o/u
+```
+
+You can use them in generator patterns like:
+
+```text
+CVCV
+```
+
+### Lexicon
+
+Lexicon entries are morphemes: prefixes, roots, suffixes, stems, particles, infixes, or other word-building pieces. Each category has a letter code that can be used in generator patterns.
+
+Example:
+
+```text
+pre = before
+sil = bird
+less = without
+```
+
+Lexicon categories have placement rules such as start, middle, end, or anywhere. They can also apply to words, names, or both.
+
+### Vocabulary
+
+Vocabulary entries are whole words. They use dot variables in generator patterns:
+
+```text
+.n.
+```
+
+A noun category with variable `n` can supply whole vocabulary words.
+
+### Names
+
+Names are proper nouns with their own categories and double-dot variables:
+
+```text
+..F..
+..F.. ..L..
+```
+
+Names can have actual meanings, literal analysis from Lexicon pieces, spelling variants, nicknames, and related names.
+
+## Generator syntax
+
+- `C`, `V`, `L` - Additional Pattern or Lexicon category variables
+- `.n.` - Vocabulary variable
+- `..F..` - Names variable
+- `/` - alternatives
+- `[a/b]` - required choice group
+- `(x)` - optional group
+- `{n}` or `{min,max}` - repetition
+- `<...>` - capture
+- `&` or `&1` - backreference
+- `!` - exclusion, such as `C!m,n`
+- quoted text keeps special characters literal
+
+## Import and export
+
+Morf exports `.morf` files, which are JSON data with a custom extension. Import supports `.morf`, `.json`, pasted JSON, and older Morf-style exports where possible.
+
