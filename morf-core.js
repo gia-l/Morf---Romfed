@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  const VERSION = 'Morf 3.4.2';
+  const VERSION = 'Morf 3.4.3';
   const MAX_ENUM = 750;
   const MAX_ATTEMPTS = 250;
 
@@ -455,32 +455,27 @@
       { id: 'add_L', letter: 'L', name: 'Liquids', pattern: 'l/r' }
     ],
     lexiconCategories: [
-      { id: 'lex_P', letter: 'P', name: 'Prefixes', placement: 'start', appliesWords: true, appliesNames: false, entries: [
-        { id: 'le_un', form: 'un-', gloss: 'opposite' },
-        { id: 'le_ma', form: 'ma-', gloss: 'person/agent' }
+      { id: 'lex_P', letter: 'P', name: 'Prefixes', placement: 'start', appliesWords: true, appliesNames: true, entries: [
+        { id: 'le_pre', form: 'pre-', gloss: 'before' }
       ]},
       { id: 'lex_R', letter: 'R', name: 'Roots', placement: 'anywhere', appliesWords: true, appliesNames: true, entries: [
-        { id: 'le_kal', form: 'kal', gloss: 'stone' },
-        { id: 'le_nu', form: 'nu', gloss: 'water' },
-        { id: 'le_sol', form: 'sol', gloss: 'sun' }
+        { id: 'le_sil', form: 'sil', gloss: 'bird' }
       ]},
-      { id: 'lex_S', letter: 'S', name: 'Suffixes', placement: 'end', appliesWords: true, appliesNames: false, entries: [
-        { id: 'le_i', form: '-i', gloss: 'noun' },
-        { id: 'le_a', form: '-a', gloss: 'verb' }
+      { id: 'lex_S', letter: 'S', name: 'Suffixes', placement: 'end', appliesWords: true, appliesNames: true, entries: [
+        { id: 'le_less', form: '-less', gloss: 'without' }
+      ]},
+      { id: 'lex_E', letter: 'E', name: 'Name endings', placement: 'end', appliesWords: false, appliesNames: true, entries: [
+        { id: 'le_a_name', form: '-a', gloss: 'name ending' }
       ]}
     ],
     nameCategories: [
-      { id: 'name_F', variable: 'F', name: 'First names', type: 'person', entries: [] }
+      { id: 'name_F', variable: 'F', name: 'First names', type: 'person', entries: [
+        { id: 'ne_isabella', name: 'Isabella/Isabel', actual: 'example personal name', literal: '', notes: 'Generic starter example. Replace it with your own names.', nicknames: 'Bella/Belle/Isa' }
+      ]}
     ],
     vocabularyCategories: [
       { id: 'voc_n', variable: 'n', name: 'Nouns', entries: [
-        { id: 've_kima', word: 'kima', gloss: 'stone' },
-        { id: 've_nalu', word: 'nalu', gloss: 'water' },
-        { id: 've_sola', word: 'sola', gloss: 'sun' }
-      ]},
-      { id: 'voc_v', variable: 'v', name: 'Verbs', entries: [
-        { id: 've_miku', word: 'miku', gloss: 'eat' },
-        { id: 've_tala', word: 'tala', gloss: 'walk' }
+        { id: 've_dog', word: 'dog', gloss: 'type of animal' }
       ]}
     ]
   };
@@ -2042,25 +2037,39 @@
 
   function parseImportText(raw){
     let parsed;
+    const text = String(raw || '').replace(/^\uFEFF/, '').trim();
     try {
-      parsed = JSON.parse(raw);
+      parsed = JSON.parse(text);
     } catch(err) {
-      // Best-effort imports for very old/plain text exports.
-      // Awkwords-style text can be pasted/imported as subpatterns plus a pattern.
-      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      const patterns = [];
-      let mainPattern = '';
-      const meanings = [];
-      for(const line of lines){
-        const pat = line.match(/^(?:pattern|main|generator)\s*[:=]\s*(.+)$/i);
-        if(pat){ mainPattern = pat[1]; continue; }
-        const assign = line.match(/^([A-Z][A-Za-z0-9_]*)\s*[:=]\s*(.+)$/);
-        if(assign){ patterns.push({ letter: assign[1], name: assign[1], pattern: assign[2] }); continue; }
-        meanings.push(line);
+      // Some old exports or copied files may wrap the JSON in extra text.
+      // Try the largest brace-wrapped chunk before falling back to plain text.
+      const firstBrace = text.indexOf('{');
+      const lastBrace = text.lastIndexOf('}');
+      if(firstBrace >= 0 && lastBrace > firstBrace){
+        try {
+          parsed = JSON.parse(text.slice(firstBrace, lastBrace + 1));
+        } catch(_braceErr) {
+          parsed = null;
+        }
       }
-      parsed = patterns.length || mainPattern
-        ? { additionalPatterns: patterns, generator: { pattern: mainPattern || '' } }
-        : { advancedSettings: { meaningsText: meanings.join('\n') || raw, meaningsMode: true } };
+      if(!parsed){
+        // Best-effort imports for very old/plain text exports.
+        // Awkwords-style text can be pasted/imported as subpatterns plus a pattern.
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const patterns = [];
+        let mainPattern = '';
+        const meanings = [];
+        for(const line of lines){
+          const pat = line.match(/^(?:pattern|main|generator)\s*[:=]\s*(.+)$/i);
+          if(pat){ mainPattern = pat[1]; continue; }
+          const assign = line.match(/^([A-Z][A-Za-z0-9_]*)\s*[:=]\s*(.+)$/);
+          if(assign){ patterns.push({ letter: assign[1], name: assign[1], pattern: assign[2] }); continue; }
+          meanings.push(line);
+        }
+        parsed = patterns.length || mainPattern
+          ? { additionalPatterns: patterns, generator: { pattern: mainPattern || '' } }
+          : { advancedSettings: { meaningsText: meanings.join('\n') || text, meaningsMode: true } };
+      }
     }
     return parsed;
   }

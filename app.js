@@ -2,7 +2,7 @@
   'use strict';
 
   const M = window.MorfCore;
-  const STORE_KEY = 'morf-3-4-2-button-rescue-settings';
+  const STORE_KEY = 'morf-3-4-3-button-rescue-settings';
   let state = M.normalizeState(M.DEFAULT_STATE);
   let lastResults = [];
   let lastStats = {};
@@ -1377,7 +1377,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
   function exportSettings(){
     try {
       const json = M.exportState(state);
-      download('morf-3-4-2-settings.morf', json, 'application/json');
+      download('morf-3-4-3-settings.morf', json, 'application/json');
       setStatus('Exported settings file.', 'success');
     } catch(err){
       setStatus('Export failed: ' + err.message, 'error');
@@ -1412,7 +1412,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
       await navigator.clipboard.writeText(M.exportState(state));
       setStatus('Settings JSON copied.', 'success');
     } catch(err){
-      download('morf-3-4-2-settings.morf', M.exportState(state), 'application/json');
+      download('morf-3-4-3-settings.morf', M.exportState(state), 'application/json');
     }
   }
 
@@ -1453,7 +1453,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
 
     $('#exportBtn').addEventListener('click', () => {
       const json = M.exportState(state);
-      download('morf-3-4-2-settings.morf', json, 'application/json');
+      download('morf-3-4-3-settings.morf', json, 'application/json');
       setStatus('Exported settings file.', 'success');
     });
     $('#importBtn').addEventListener('click', () => $('#importFile').click());
@@ -1477,7 +1477,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
     }
     $('#copySettingsBtn').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(M.exportState(state)); setStatus('Settings JSON copied.', 'success'); }
-      catch(err){ download('morf-3-4-2-settings.morf', M.exportState(state), 'application/json'); }
+      catch(err){ download('morf-3-4-3-settings.morf', M.exportState(state), 'application/json'); }
     });
     $('#clearLocalBtn').addEventListener('click', () => {
       if(confirm('Clear the browser autosave for Morf?')){
@@ -1492,15 +1492,15 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
   }
 
   function loadSample(){
-    state.generator.pattern = 'P R S / [CV]{2}(C) / <CV>&(CV) / .n.';
-    state.advanced.rewrites = 'ti=chi\ntu=tsu\n<C>=&1&1';
+    state.generator.pattern = 'P R S / [CV]{2}(C) / .n. / ..F..';
+    state.advanced.rewrites = 'ti=chi\n<C>=&1&1';
     state.advanced.forbidden = 'kkk\nppp\nVVV';
     state.advanced.starts = '';
     state.advanced.contains = '';
     state.advanced.ends = '';
     syncControls();
     debounceSave();
-    setStatus('Loaded a mixed phonology + morpheme sample pattern.', 'success');
+    setStatus('Loaded a generic sample pattern.', 'success');
   }
 
   function installEmergencyButtonRouter(){
@@ -1597,7 +1597,19 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
     generate,
     analyze: analyzeInput,
     renderDictionary,
-    getState: () => state
+    syncControls,
+    getState: () => state,
+    setState: (next, opts={}) => {
+      state = M.normalizeState(next);
+      lastResults = [];
+      lastStats = {};
+      syncControls();
+      renderResults([]);
+      saveLocal();
+      const source = opts && opts.source ? ' from ' + opts.source : '';
+      setStatus('Imported settings' + source + '.', 'success');
+      return state;
+    }
   };
 
   document.addEventListener('click', function(e){
