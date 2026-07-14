@@ -1,22 +1,22 @@
-# Morf 4.2
+# Morf 4.2.1
 
 Morf is a browser-based language workshop for building words, names, morphemes, meanings, and dictionaries in one connected place. It can be used for conlangs, worldbuilding, fantasy/sci-fi names, fictional cultures, naming systems, tabletop settings, or any project where words and names should feel like they belong together.
 
-Version 4.2 keeps the Version 4 Family / Related to links and adds **tilde shorthand** for variations and broader families. These are different from variations, synonyms, homonyms, and nicknames: a family link connects separate entries that are related, derived, named after, pluralized, adjectivalized, demonymic, or otherwise part of the same larger family.
+Version 4.2.1 keeps the Version 4 Family / Related to links and adds **tilde shorthand** for variations and broader families. These are different from variations, synonyms, homonyms, and nicknames: a family link connects separate entries that are related, derived, named after, pluralized, adjectivalized, demonymic, or otherwise part of the same larger family.
 
 ## Running Morf
 
 Open `index.html` in a browser, or host the full project folder on GitHub Pages/Netlify/etc. The full project uses these files together:
 
 - `index.html`
-- `styles.css` / `styles-4-2.css`
-- `morf-core.js` / `morf-core-4-2.js`
-- `app.js` / `app-4-2.js`
-- `button-rescue.js` / `button-rescue-4-2.js`
-- `tab-switcher.js` / `tab-switcher-4-2.js`
-- `version-fix.js` / `version-fix-4-2.js`
+- `styles.css` / `styles-4-2-1.css`
+- `morf-core.js` / `morf-core-4-2-1.js`
+- `app.js` / `app-4-2-1.js`
+- `button-rescue.js` / `button-rescue-4-2-1.js`
+- `tab-switcher.js` / `tab-switcher-4-2-1.js`
+- `version-fix.js` / `version-fix-4-2-1.js`
 
-There is also a backup all-in-one file: `morf_4_2_standalone.html`.
+There is also a backup all-in-one file: `morf_4_2_1_standalone.html`.
 
 ## The four main stores
 
@@ -253,7 +253,7 @@ Click entries to edit or move them.
 
 ## Import/export
 
-Morf exports `.morf` JSON files and can import `.morf`, `.json`, pasted JSON, and older Morf-style settings. Version 4.2 remains compatible with projects that do not have Names or Family links yet.
+Morf exports `.morf` JSON files and can import `.morf`, `.json`, pasted JSON, and older Morf-style settings. Version 4.2.1 remains compatible with projects that do not have Names or Family links yet.
 
 
 ## Version 4.1 tilde shorthand
@@ -274,7 +274,7 @@ Synfolk = people of Syn ;{N{Feminine names}Syn~};
 ```
 
 
-## Morf 4.2 family-link cleanup
+## Morf 4.2.1 family-link cleanup
 
 Family links live at the end of a meaning. Morf strips the link syntax out of the visible meaning and stores it as a dictionary relationship.
 
@@ -287,3 +287,10 @@ word = [meaning/other meaning/third meaning];{V{Nouns}target};
 The dictionary shows links as **Related to** on the linked entry and **See family** on the target entry. Name entries still use **See similar names** for same-meaning similar spellings; family links are separate.
 
 Generator pieces also collapse consecutive Additional Pattern output into one generated chunk, so a pattern like `CVC` displays as one piece such as `ape`, while `P C V C` can display as `pre - ape`.
+
+
+## 4.2.1 bug-fix notes
+
+- Generated phonology runs are collapsed into one clickable unknown chunk again. For example, a pure pattern like `FEFE` displays `luso` as one generated piece, not `l-u-s-o`.
+- Mixed generated/stored words still split around known pieces, so something like `R FEFE S` can display as `known-root - unknown-chunk - known-suffix`.
+- Comma nickname syntax for Names remains nickname syntax, separate from Family links.
