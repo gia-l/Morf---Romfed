@@ -9,7 +9,7 @@
     } catch(_) {}
     return;
   }
-  const STORE_KEY = 'morf-3-5-compat-settings';
+  const STORE_KEY = 'morf-4-2-settings';
   let state = M.normalizeState(M.DEFAULT_STATE);
   let lastResults = [];
   let lastStats = {};
@@ -1452,7 +1452,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
       const nicknamesHtml = row.scope === 'name' && nickList.length ? `<details class="dictDetails"><summary>See nicknames (${nickList.length})</summary><div class="synonymList">${nickList.map(n => `<button type="button" class="synonymItem dictEdit" ${editAttrs(row)}><strong>${escapeHtml(n)}</strong></button>`).join('')}</div></details>` : '';
       const sourceNamesHtml = row.scope === 'name' && row.nicknameOf ? `<details class="dictDetails"><summary>See source name</summary><div class="synonymList"><button type="button" class="synonymItem dictEdit" ${editAttrs(row)}><strong>${escapeHtml(row.nicknameOf)}</strong></button></div></details>` : '';
       const nameExtraHtml = row.scope === 'name' ? `<div class="dictChips">${row.literal ? dictChip('literal: ' + row.literal, 'extraMeaning') : ''}${row.notes ? dictChip('notes: ' + row.notes, 'extraMeaning') : ''}</div>` : '';
-      const synonymTitle = row.scope === 'name' ? 'See family' : 'See synonyms';
+      const synonymTitle = row.scope === 'name' ? 'See similar names' : 'See synonyms';
       const synonymButtons = row.scope === 'name'
         ? synonyms.map(s => `<button type="button" class="synonymItem dictEdit" ${editAttrs(s)}><strong>${escapeHtml(s.displayForm || s.form)}</strong></button>`).join('')
         : synonyms.map(s => `<button type="button" class="synonymItem dictEdit" ${editAttrs(s)}><strong>${escapeHtml(s.displayForm || s.form)}</strong><span>${escapeHtml(s.gloss || '(no meaning)')}</span><em>${escapeHtml(s.type)} · ${escapeHtml(s.cat)}</em></button>`).join('');
@@ -1522,7 +1522,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
   function exportSettings(){
     try {
       const json = M.exportState(state);
-      download('morf-3-5-settings.morf', json, 'application/json');
+      download('morf-4-2-settings.morf', json, 'application/json');
       setStatus('Exported settings file.', 'success');
     } catch(err){
       setStatus('Export failed: ' + err.message, 'error');
@@ -1557,7 +1557,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
       await navigator.clipboard.writeText(M.exportState(state));
       setStatus('Settings JSON copied.', 'success');
     } catch(err){
-      download('morf-3-5-settings.morf', M.exportState(state), 'application/json');
+      download('morf-4-2-settings.morf', M.exportState(state), 'application/json');
     }
   }
 
@@ -1598,7 +1598,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
 
     $('#exportBtn').addEventListener('click', () => {
       const json = M.exportState(state);
-      download('morf-3-5-settings.morf', json, 'application/json');
+      download('morf-4-2-settings.morf', json, 'application/json');
       setStatus('Exported settings file.', 'success');
     });
     $('#importBtn').addEventListener('click', () => $('#importFile').click());
@@ -1622,7 +1622,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
     }
     $('#copySettingsBtn').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(M.exportState(state)); setStatus('Settings JSON copied.', 'success'); }
-      catch(err){ download('morf-3-5-settings.morf', M.exportState(state), 'application/json'); }
+      catch(err){ download('morf-4-2-settings.morf', M.exportState(state), 'application/json'); }
     });
     $('#clearLocalBtn').addEventListener('click', () => {
       if(confirm('Clear the browser autosave for Morf?')){

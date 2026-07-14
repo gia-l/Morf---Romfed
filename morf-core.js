@@ -307,7 +307,7 @@
     return out;
   }
 
-  function findTextParen(str){
+  function findTextGroup(str, open, close){
     let quote = false, depth = 0, start = -1;
     for(let i=0;i<str.length;i++){
       const ch = str[i];
@@ -316,10 +316,10 @@
         continue;
       }
       if(ch === '"'){ quote = true; continue; }
-      if(ch === '('){
+      if(ch === open){
         if(depth === 0) start = i;
         depth++;
-      } else if(ch === ')' && depth > 0){
+      } else if(ch === close && depth > 0){
         depth--;
         if(depth === 0) return { start, end: i };
       }
@@ -327,15 +327,21 @@
     return null;
   }
 
+  function isWrappedByTextGroup(raw, open, close){
+    const s = String(raw || '').trim();
+    if(!s.startsWith(open) || !s.endsWith(close)) return false;
+    return findMatchingBracket(s, 0, open, close) === s.length - 1;
+  }
+
   function expandOptionalText(str, limit=128){
     str = String(str || '');
-    const paren = findTextParen(str);
+    const paren = findTextGroup(str, '(', ')');
     if(!paren) return [str];
     const before = str.slice(0, paren.start);
     const inner = str.slice(paren.start + 1, paren.end);
     const after = str.slice(paren.end + 1);
     const innerOptions = [''].concat(expandGlossText(inner, limit));
-    const afterOptions = expandOptionalText(after, limit);
+    const afterOptions = expandRequiredText(after, limit);
     const out = [];
     for(const opt of innerOptions){
       for(const tail of afterOptions){
@@ -346,9 +352,31 @@
     return out;
   }
 
+  function expandRequiredText(str, limit=128){
+    str = String(str || '');
+    const square = findTextGroup(str, '[', ']');
+    if(!square) return expandOptionalText(str, limit);
+    const before = str.slice(0, square.start);
+    const inner = str.slice(square.start + 1, square.end);
+    const after = str.slice(square.end + 1);
+    const innerOptions = expandGlossText(inner, limit);
+    const afterOptions = expandRequiredText(after, limit);
+    const out = [];
+    for(const opt of innerOptions.length ? innerOptions : ['']){
+      for(const tail of afterOptions){
+        out.push(before + opt + tail);
+        if(out.length >= limit) return out;
+      }
+    }
+    return out;
+  }
+
   function expandGlossText(text, limit=128){
-    const raw = String(text || '').trim();
+    let raw = String(text || '').trim();
     if(!raw) return [];
+    const family = extractFamilyLinks(raw);
+    raw = family.text;
+    if(isWrappedByTextGroup(raw, '[', ']')) raw = raw.slice(1, -1).trim();
     const slashParts = splitTopLevel(raw, '/');
     let out = [];
     if(slashParts.length > 1){
@@ -357,7 +385,7 @@
         if(out.length >= limit) break;
       }
     } else {
-      out = expandOptionalText(raw, limit);
+      out = expandRequiredText(raw, limit);
     }
     return uniqueList(out.map(s => s.replace(/^"|"$/g, '').replace(/\s+/g, ' ').trim())).slice(0, limit);
   }
@@ -388,15 +416,8 @@
     return raw ? raw[0] : '';
   }
 
-  function parseFamilyLinkBody(body){
-    // Family links accept both full and shorthand forms:
-    //   ;{L{R}joop};      type L, category R, target joop
-    //   ;{V{Nouns}dog};   type V, category Nouns, target dog
-    //   ;{N}Aun;          type N, no category, target Aun
-    //   ;{N Aun};         type N, no category, target Aun
-    let s = String(body || '').trim();
-    if(s.startsWith('{') && s.endsWith('}')) s = s.slice(1, -1).trim();
-    else if(s.startsWith('{')) s = s.slice(1).trim();
+  function parseFamilyTypeCategoryHead(head){
+    let s = String(head || '').trim();
     const typeMatch = s.match(/^([A-Za-z]+)/);
     if(!typeMatch) return null;
     const type = normalizeFamilyLinkType(typeMatch[1]);
@@ -409,13 +430,45 @@
         category = s.slice(1, j).trim();
         s = s.slice(j + 1).trim();
       }
-    } else if(s.startsWith('}')){
-      // Shorthand with no category: {N}Aun
-      s = s.slice(1).trim();
     }
-    const target = s.replace(/^[:;\s}]+/, '').trim();
+    return { type, category, rest: s.trim() };
+  }
+
+  function parseFamilyLinkBody(body){
+    let s = String(body || '').trim();
+    if(!s) return null;
+    if(s.startsWith(';')) s = s.slice(1).trim();
+    if(s.endsWith(';')) s = s.slice(0, -1).trim();
+
+    // Supported family syntaxes:
+    //   ;{V{Nouns}peach};      precise: type + category + target in one group
+    //   ;{V}peach;             shorter: type group, then target
+    //   ;{N{First names}}Daria; shorter: type/category group, then target
+    //   ;{L{R}joop}            no trailing semicolon is tolerated
+    if(s.startsWith('{')){
+      const j = findMatchingBracket(s, 0, '{', '}');
+      if(j !== -1){
+        const inner = s.slice(1, j).trim();
+        const tail = s.slice(j + 1).trim();
+        if(tail){
+          const head = parseFamilyTypeCategoryHead(inner);
+          if(head && tail) return { type: head.type, category: head.category, target: tail.replace(/^[:\s]+/, '').trim() };
+        }
+        if(j === s.length - 1){
+          s = inner;
+        } else {
+          s = (inner + ' ' + tail).trim();
+        }
+      } else {
+        s = s.slice(1).trim();
+      }
+    }
+
+    const head = parseFamilyTypeCategoryHead(s);
+    if(!head) return null;
+    const target = String(head.rest || '').replace(/^[:\s]+/, '').trim();
     if(!target) return null;
-    return { type, category, target };
+    return { type: head.type, category: head.category, target };
   }
 
   function extractFamilyLinks(text){
@@ -424,34 +477,31 @@
     let out = '';
     for(let i = 0; i < s.length; i++){
       if(s[i] === ';' && s[i + 1] === '{'){
-        // Prefer the full semicolon-delimited chunk. This catches shorthand like
-        // ;{N}Aun; where the first closing brace only closes the type marker.
+        const candidates = [];
         const nextSemi = s.indexOf(';', i + 2);
         if(nextSemi !== -1){
-          const link = parseFamilyLinkBody(s.slice(i + 1, nextSemi));
-          if(link){
-            link.raw = s.slice(i, nextSemi + 1);
-            links.push(link);
-            i = nextSemi;
-            continue;
-          }
+          candidates.push({ body: s.slice(i + 1, nextSemi), end: nextSemi, consumeSemi: true });
         }
-        // Fallback for links without a final semicolon: ;{L{R}joop}
-        const start = i + 1;
-        const end = findMatchingBracket(s, start, '{', '}');
-        if(end !== -1){
-          const link = parseFamilyLinkBody(s.slice(start, end + 1));
-          if(link){
-            link.raw = s.slice(i, end + 1);
-            links.push(link);
-            i = end;
-            continue;
-          }
+        const endBrace = findMatchingBracket(s, i + 1, '{', '}');
+        if(endBrace !== -1){
+          candidates.push({ body: s.slice(i + 1, endBrace + 1), end: endBrace, consumeSemi: s[endBrace + 1] === ';' });
+        }
+        let found = null;
+        for(const cand of candidates){
+          const link = parseFamilyLinkBody(cand.body);
+          if(link){ found = { link, cand }; break; }
+        }
+        if(found){
+          const finalEnd = found.cand.end + (found.cand.consumeSemi ? 1 : 0);
+          found.link.raw = s.slice(i, finalEnd);
+          links.push(found.link);
+          i = finalEnd - 1;
+          continue;
         }
       }
       out += s[i];
     }
-    return { text: out.replace(/\s+$/, '').trim(), links };
+    return { text: out.replace(/\s+([/|])/g, '$1').replace(/([/|])\s+/g, '$1').replace(/\s+$/, '').trim(), links };
   }
 
   function formatFamilyLinks(links){

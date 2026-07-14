@@ -9,14 +9,14 @@ Version 4.2 keeps the Version 4 Family / Related to links and adds **tilde short
 Open `index.html` in a browser, or host the full project folder on GitHub Pages/Netlify/etc. The full project uses these files together:
 
 - `index.html`
-- `styles.css` / `styles-4-0.css`
-- `morf-core.js` / `morf-core-4-0.js`
-- `app.js` / `app-4-0.js`
-- `button-rescue.js` / `button-rescue-4-0.js`
-- `tab-switcher.js` / `tab-switcher-4-0.js`
-- `version-fix.js` / `version-fix-4-0.js`
+- `styles.css` / `styles-4-2.css`
+- `morf-core.js` / `morf-core-4-2.js`
+- `app.js` / `app-4-2.js`
+- `button-rescue.js` / `button-rescue-4-2.js`
+- `tab-switcher.js` / `tab-switcher-4-2.js`
+- `version-fix.js` / `version-fix-4-2.js`
 
-There is also a backup all-in-one file: `morf_4_0_standalone.html`.
+There is also a backup all-in-one file: `morf_4_2_standalone.html`.
 
 ## The four main stores
 
@@ -256,9 +256,9 @@ Click entries to edit or move them.
 Morf exports `.morf` JSON files and can import `.morf`, `.json`, pasted JSON, and older Morf-style settings. Version 4.2 remains compatible with projects that do not have Names or Family links yet.
 
 
-## Version 4.2 tilde shorthand
+## Version 4.1 tilde shorthand
 
-Morf 4.2 adds shorthand markers that can be used anywhere the pattern engine reads Morf syntax, including generator patterns, filters, rewrites, forbidden rules, and family-link targets.
+Morf 4.1 added shorthand markers that can be used anywhere the pattern engine reads Morf syntax, including generator patterns, filters, rewrites, forbidden rules, and family-link targets.
 
 - `form~` means “use the stored spelling variations for the entry that contains this form.” If `mor[o/u] = water` exists, then `moru~` can expand to `moro` or `moru`. If `k[i/y]me = magic` exists, then `kime~` can expand to `kime` or `kyme`.
 - `form~~` means “use the broader family around this form.” It includes the entry itself, entries it is related to, and sibling entries that point to the same family target. For example, if `peachy` and `peaches` both point to `peach`, then `peachy~~` can find `peachy`, `peach`, and `peaches`.
@@ -274,18 +274,16 @@ Synfolk = people of Syn ;{N{Feminine names}Syn~};
 ```
 
 
-## Version 4.2 family link parsing
+## Morf 4.2 family-link cleanup
 
-Family links are parsed at the end of individual meaning chunks. This means you can write links per meaning:
-
-```text
-word = meaning ;{V{Nouns}root};/other meaning ;{N{Name category}Name};
-```
-
-Or apply one link to a bracketed meaning group:
+Family links live at the end of a meaning. Morf strips the link syntax out of the visible meaning and stores it as a dictionary relationship.
 
 ```text
-entry = [meaning/other meaning/third meaning];{V{Nouns}root};
+word = meaning ;{V{Nouns}target};
+word = meaning ;{N}Aun;/other meaning ;{L{R}joop};
+word = [meaning/other meaning/third meaning];{V{Nouns}target};
 ```
 
-The link text is removed from the visible gloss, and the Dictionary shows it as **Related to** on the linked entry and **See family** on the target entry. Shorthand links such as `;{N}Aun;` are also accepted.
+The dictionary shows links as **Related to** on the linked entry and **See family** on the target entry. Name entries still use **See similar names** for same-meaning similar spellings; family links are separate.
+
+Generator pieces also collapse consecutive Additional Pattern output into one generated chunk, so a pattern like `CVC` displays as one piece such as `ape`, while `P C V C` can display as `pre - ape`.
