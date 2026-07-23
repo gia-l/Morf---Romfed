@@ -1,4 +1,4 @@
-/* Morf 4.2.3 pre-app button rescue.
+/* Morf 4.2.2 pre-app button rescue.
    This registers before the main app router, so core buttons still work if a later
    script/listener crashes or stops the normal handlers. It uses MorfCore directly
    and leaves the existing UI + syntax alone. */
@@ -10,7 +10,7 @@
     clearLocalBtn: 'clearLocal', resetDefaultsBtn: 'reset', sampleBtn: 'sample', addNameCategoryBtn: 'addNameCat',
     addLexiconBtn: 'addLexCat', addVocabularyBtn: 'addVocCat', addAdditionalBtn: 'addPattern'
   };
-  var STORE_KEY = 'morf-4-2-3-settings';
+  var STORE_KEY = 'morf-4-2-2-settings';
   var lastResults = [];
   var lastStats = {};
   function $(id){ return document.getElementById(id); }
@@ -123,7 +123,7 @@
     return false;
   }
   function download(name, text){ var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'application/json'})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500); }
-  function doExport(){ var M=core(); if(!M){ status('MorfCore did not load.', 'error'); return false; } var st=readDomIntoState(safeState()); window.__MorfSafeState=st; mutateAppState(st); download('morf-4-2-3-settings.morf', M.exportState(st)); status('Exported settings file.','success'); return false; }
+  function doExport(){ var M=core(); if(!M){ status('MorfCore did not load.', 'error'); return false; } var st=readDomIntoState(safeState()); window.__MorfSafeState=st; mutateAppState(st); download('morf-4-2-2-settings.morf', M.exportState(st)); status('Exported settings file.','success'); return false; }
   function doImport(){ var inp=$('importFile'); if(!inp){ status('Import input is missing.', 'error'); return false; } inp.removeAttribute('accept'); inp.click(); return false; }
   function applyImported(text, label){
     var M=core();
@@ -146,7 +146,7 @@
     }
   }
   function doPasteImport(){ var box=$('pasteSettingsBox'); if(!box || !box.value.trim()){ status('Paste settings JSON first.', 'error'); return false; } if(applyImported(box.value, 'pasted settings')) box.value=''; return false; }
-  function doCopySettings(){ var M=core(), st=readDomIntoState(safeState()), json=M.exportState(st); if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(json).then(function(){status('Settings JSON copied.','success');}, function(){download('morf-4-2-3-settings.morf', json);}); } else download('morf-4-2-3-settings.morf', json); return false; }
+  function doCopySettings(){ var M=core(), st=readDomIntoState(safeState()), json=M.exportState(st); if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(json).then(function(){status('Settings JSON copied.','success');}, function(){download('morf-4-2-2-settings.morf', json);}); } else download('morf-4-2-2-settings.morf', json); return false; }
   function doClear(){ try{ localStorage.removeItem(STORE_KEY); }catch(_){} window.__MorfSafeState=null; status('Autosave cleared for this build.','success'); return false; }
   function doReset(){ var M=core(); if(!M) return false; window.__MorfSafeState=M.normalizeState(M.DEFAULT_STATE); mutateAppState(window.__MorfSafeState); writeControls(window.__MorfSafeState); refreshMainUi(); status('Starter settings restored.','success'); return false; }
   function doSample(){ var st=safeState(); st.generator=st.generator||{}; st.advanced=st.advanced||{}; st.generator.pattern='P R S / [CV]{2}(C) / <CV>&(CV) / .n.'; st.advanced.rewrites='ti=chi\ntu=tsu\n<C>=&1&1'; st.advanced.forbidden='kkk\nppp\nVVV'; writeControls(st); status('Loaded generic sample pattern.','success'); return false; }

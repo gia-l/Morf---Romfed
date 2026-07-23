@@ -9,12 +9,11 @@
     } catch(_) {}
     return;
   }
-  const STORE_KEY = 'morf-4-2-3-settings';
+  const STORE_KEY = 'morf-4-2-2-settings';
   let state = M.normalizeState(M.DEFAULT_STATE);
   let lastResults = [];
   let lastStats = {};
   let lastElapsed = 0;
-  let lastRandomPick = null;
   let selectedSegment = null;
   let editingEntry = null;
   let saveTimer = null;
@@ -289,13 +288,14 @@
     if(!lastResults.length){ setStatus('Generate words first, then pick random.', 'error'); return; }
     const pickIndex = Math.floor(Math.random() * lastResults.length);
     const picked = Object.assign({}, lastResults[pickIndex], { picked: true });
-    lastRandomPick = picked;
-    lastResults = lastResults.map(item => Object.assign({}, item, { picked: false }));
+    const rest = lastResults
+      .filter((_, idx) => idx !== pickIndex)
+      .map(item => Object.assign({}, item, { picked: false }));
+    lastResults = [picked].concat(rest);
     renderResults(lastResults, lastStats, lastElapsed);
-    renderRandomPick(picked);
-    setStatus(`Random pick: ${picked.word}${picked.gloss ? ' — ' + picked.gloss : ''}`, 'success');
-    const panel = $('#randomPickPanel');
-    if(panel && panel.scrollIntoView) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    setStatus(`Random pick moved to top: ${picked.word}${picked.gloss ? ' — ' + picked.gloss : ''}`, 'success');
+    const top = $('#results .resultItem.picked');
+    if(top && top.scrollIntoView) top.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   function selectCopyOutput(){
@@ -343,8 +343,6 @@
         lastResults = [];
         lastStats = {};
         lastElapsed = 0;
-        lastRandomPick = null;
-        renderRandomPick(null);
         $('#results').innerHTML = '<div class="notice error">Enter a generator pattern first, like <code>CV</code> or <code>[CV]{2}</code>.</div>';
         $('#outputText').value = '';
         $('#resultStats').textContent = 'No pattern entered';
@@ -357,8 +355,6 @@
       const run = M.generateWords(state, { count, meanings });
       const elapsed = Math.round(((window.performance && performance.now) ? performance.now() : Date.now()) - start);
       lastResults = run.results.map(item => Object.assign({}, item, { picked: false }));
-      lastRandomPick = null;
-      renderRandomPick(null);
       lastStats = run.stats || {};
       lastElapsed = elapsed;
       renderResults(lastResults, lastStats, lastElapsed);
@@ -446,49 +442,9 @@
     return collapsed;
   }
 
-  function analysisLooksUseful(analysis, producedSegs){
-    if(!Array.isArray(analysis) || !analysis.length) return false;
-    if(!hasDictionarySegments(analysis)) return false;
-    const producedCount = Array.isArray(producedSegs) ? producedSegs.length : 0;
-    const dictSegs = analysis.filter(isDictionarySegment);
-    if(dictSegs.length === 1 && analysis.length <= Math.max(1, producedCount)) return true;
-    const longDict = dictSegs.some(seg => String((seg && seg.form) || '').length > 1);
-    if(longDict && analysis.length <= Math.max(2, producedCount + 1)) return true;
-    return false;
-  }
-
-  function segmentsForGeneratedItem(item){
-    const produced = displaySegmentsForResult(item);
-    const analysis = item && item.analysis && item.analysis.primary ? item.analysis.primary : [];
-    const chosen = analysisLooksUseful(analysis, produced) ? analysis : produced;
-    return collapseGeneratedRuns(chosen);
-  }
-
-  function renderRandomPick(item){
-    const panel = $('#randomPickPanel');
-    if(!panel) return;
-    if(!item){
-      panel.hidden = true;
-      panel.innerHTML = '';
-      return;
-    }
-    const segs = segmentsForGeneratedItem(item);
-    const pieces = segs.map(seg => segmentHtml(seg)).join('');
-    const gloss = item.gloss || M.glossForSegments(segs) || '';
-    panel.hidden = false;
-    panel.innerHTML = `<div class="randomPickInner">
-      <div class="randomPickLabel">Random pick</div>
-      <div class="randomPickWord">${escapeHtml(item.word)}</div>
-      ${gloss ? `<div class="randomPickGloss">${escapeHtml(gloss)}</div>` : ''}
-      <div class="randomPickPieces"><span class="resultPiecesLabel">pieces</span><div class="segments">${pieces || '<span class="muted">No segmentation</span>'}</div></div>
-      <button class="small quickAddWord" type="button" data-prefer="" data-form="${escapeHtml(item.word)}" data-gloss="${escapeHtml(gloss)}">Add to…</button>
-    </div>`;
-  }
-
   function renderResults(results, stats={}, elapsed=0){
     const wrap = $('#results');
     if(!results.length){
-      renderRandomPick(null);
       const requested = stats && stats.requested;
       const msg = requested ? zeroGenerationMessage(stats) : 'No words yet.';
       wrap.innerHTML = `<div class="notice ${requested ? 'error' : ''}">${escapeHtml(msg)}</div>`;
@@ -503,9 +459,16 @@
       return;
     }
     wrap.innerHTML = results.map((item, idx) => {
-      const segs = segmentsForGeneratedItem(item);
+      const analysis = item.analysis && item.analysis.primary ? item.analysis.primary : [];
+      // Prefer analyzer output only when it actually found stored dictionary pieces.
+      // Otherwise, use the generator's own produced pieces and collapse consecutive
+      // Additional Pattern fragments into one generated chunk. So CVC displays as
+      // one root-like chunk (ape), while P+CVC displays as known prefix + unknown
+      // generated root (pre-ape).
+      const baseSegs = hasDictionarySegments(analysis) ? analysis : displaySegmentsForResult(item);
+      const segs = collapseGeneratedRuns(baseSegs);
       const segmentsHtml = segs.map(seg => segmentHtml(seg)).join('');
-      const gloss = item.gloss || M.glossForSegments(segs) || '';
+      const gloss = item.gloss || (hasDictionarySegments(analysis) ? M.glossForSegments(analysis) : '');
       const quickGloss = escapeHtml(item.gloss || gloss || '');
       return `<article class="resultItem${item.picked ? ' picked' : ''}" data-word="${escapeHtml(item.word)}">
         <div class="resultTop">
@@ -549,7 +512,7 @@
     if(seg.isNickname && seg.nicknameOf) labelParts.push('nickname of: ' + seg.nicknameOf);
     const label = labelParts.filter(Boolean).join(' · ');
     const shownCat = source === 'generated' ? '?' : (seg.cat || source);
-    return `<button class="segment" type="button" data-form="${escapeHtml(seg.form)}" data-gloss="${escapeHtml(seg.gloss === '?' ? '' : (seg.gloss || ''))}" data-literal="${escapeHtml(seg.literal || '')}" data-actual="${escapeHtml(seg.actual || seg.gloss || '')}" data-nickname-of="${escapeHtml(seg.nicknameOf || '')}" data-source="${escapeHtml(source)}" data-catid="${escapeHtml(seg.catId || '')}" data-entryid="${escapeHtml(seg.entryId || '')}" title="${escapeHtml(label)}">
+    return `<button class="segment" type="button" data-form="${escapeHtml(seg.form)}" data-gloss="${escapeHtml(seg.gloss === '?' ? '' : (seg.gloss || ''))}" data-literal="${escapeHtml(seg.literal || '')}" data-actual="${escapeHtml(seg.actual || seg.gloss || '')}" data-nickname-of="${escapeHtml(seg.nicknameOf || '')}" title="${escapeHtml(label)}">
       <span class="segForm">${escapeHtml(seg.form)}</span><span class="segCat">${escapeHtml(shownCat)}</span>
     </button>`;
   }
@@ -570,12 +533,6 @@
       }
       const seg = e.target.closest('.segment');
       if(seg){
-        const source = String(seg.dataset.source || '').toLowerCase();
-        const scope = source === 'lexicon' ? 'lex' : (source === 'vocabulary' ? 'vocab' : (source === 'name' ? 'name' : ''));
-        if(scope && (seg.dataset.catid || seg.dataset.entryid)){
-          openEntryViewDialog(scope, seg.dataset.catid || '', seg.dataset.entryid || '', { form: seg.dataset.form || seg.textContent.trim(), gloss: seg.dataset.gloss || '', literal: seg.dataset.literal || '', actual: seg.dataset.actual || '' });
-          return;
-        }
         selectedSegment = { form: seg.dataset.form || seg.textContent.trim(), gloss: seg.dataset.gloss || '', literal: seg.dataset.literal || '', actual: seg.dataset.actual || '' };
         openSegmentDialog(selectedSegment);
       }
@@ -932,81 +889,22 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
   }
 
   function findEntryRef(scope, catId, entryId){
-    const scan = (cats, field) => {
-      const pool = catId ? (cats || []).filter(c => String(c.id || '') === String(catId)) : (cats || []);
-      for(const cat of pool){
-        const entry = (cat.entries || []).find(e => String(e.id || e[field] || '') === String(entryId));
-        if(entry) return { scope, cat, entry };
-      }
-      return null;
-    };
-    if(scope === 'lex') return scan(state.lexiconCategories, 'form');
-    if(scope === 'vocab') return scan(state.vocabularyCategories, 'word');
-    if(scope === 'name') return scan(state.nameCategories, 'name');
+    if(scope === 'lex'){
+      const cat = (state.lexiconCategories || []).find(c => c.id === catId);
+      const entry = cat && (cat.entries || []).find(e => String(e.id || e.form) === String(entryId));
+      return cat && entry ? { scope, cat, entry } : null;
+    }
+    if(scope === 'vocab'){
+      const cat = (state.vocabularyCategories || []).find(c => c.id === catId);
+      const entry = cat && (cat.entries || []).find(e => String(e.id || e.word) === String(entryId));
+      return cat && entry ? { scope, cat, entry } : null;
+    }
+    if(scope === 'name'){
+      const cat = (state.nameCategories || []).find(c => c.id === catId);
+      const entry = cat && (cat.entries || []).find(e => String(e.id || e.name) === String(entryId));
+      return cat && entry ? { scope, cat, entry } : null;
+    }
     return null;
-  }
-
-  let viewingEntry = null;
-
-  function scopeLabel(scope){
-    return scope === 'lex' ? 'Lexicon' : (scope === 'vocab' ? 'Vocabulary' : (scope === 'name' ? 'Name' : 'Entry'));
-  }
-
-  function entryDisplayForm(ref){
-    if(!ref || !ref.entry) return '';
-    return ref.scope === 'lex' ? (ref.entry.form || '') : (ref.scope === 'vocab' ? (ref.entry.word || '') : (ref.entry.name || ''));
-  }
-
-  function entryDisplayGloss(ref){
-    if(!ref || !ref.entry) return '';
-    return ref.scope === 'name' ? (ref.entry.actual || ref.entry.gloss || ref.entry.meaning || '') : (ref.entry.gloss || ref.entry.meaning || '');
-  }
-
-  function ensureEntryViewDialog(){
-    let dialog = $('#entryViewDialog');
-    if(dialog) return dialog;
-    dialog = document.createElement('dialog');
-    dialog.id = 'entryViewDialog';
-    dialog.innerHTML = `<h3 id="entryViewTitle">Entry</h3>
-      <div id="entryViewBody" class="entryViewBody"></div>
-      <div class="dialogActions">
-        <button id="entryViewEditBtn" type="button" class="primary">Edit entry</button>
-        <button id="entryViewCloseBtn" type="button" class="secondary">Close</button>
-      </div>`;
-    document.body.appendChild(dialog);
-    $('#entryViewCloseBtn', dialog).addEventListener('click', () => dialog.close());
-    $('#entryViewEditBtn', dialog).addEventListener('click', () => {
-      if(!viewingEntry) return;
-      const current = viewingEntry;
-      dialog.close();
-      openEntryEditDialog(current.scope, current.catId, current.entryId);
-    });
-    return dialog;
-  }
-
-  function openEntryViewDialog(scope, catId, entryId, fallback={}){
-    const ref = findEntryRef(scope, catId, entryId);
-    if(!ref){
-      selectedSegment = { form: fallback.form || '', gloss: fallback.gloss || '', literal: fallback.literal || '', actual: fallback.actual || '' };
-      openSegmentDialog(selectedSegment);
-      return;
-    }
-    viewingEntry = { scope, catId: ref.cat.id || catId || '', entryId: ref.entry.id || entryId || '' };
-    const dialog = ensureEntryViewDialog();
-    const form = entryDisplayForm(ref);
-    const gloss = entryDisplayGloss(ref);
-    const meta = `${scopeLabel(scope)} · ${ref.cat.name || ref.cat.letter || ref.cat.variable || 'category'}${ref.cat.letter ? ' · ' + ref.cat.letter : ''}${ref.cat.variable ? ' · .' + ref.cat.variable + '.' : ''}${ref.cat.type ? ' · ' + ref.cat.type : ''}`;
-    let literal = ref.entry.literal || fallback.literal || '';
-    if(scope === 'name' && !literal && M.analyzeNameLiteral){
-      try { literal = (M.analyzeNameLiteral(form, state).gloss || ''); } catch(_) { literal = ''; }
-    }
-    $('#entryViewTitle', dialog).textContent = form || 'Entry';
-    $('#entryViewBody', dialog).innerHTML = `<p class="dictMeta">${escapeHtml(meta)}</p>
-      ${gloss ? `<p><strong>Meaning:</strong> ${escapeHtml(gloss)}</p>` : '<p class="muted">No meaning saved yet.</p>'}
-      ${literal ? `<p><strong>Literal:</strong> ${escapeHtml(literal)}</p>` : ''}
-      ${ref.entry.nicknames ? `<p><strong>Nicknames:</strong> ${escapeHtml(ref.entry.nicknames)}</p>` : ''}
-      ${ref.entry.notes ? `<p><strong>Notes:</strong> ${escapeHtml(ref.entry.notes)}</p>` : ''}`;
-    dialog.showModal();
   }
 
   function openEntryEditDialog(scope, catId, entryId){
@@ -1623,7 +1521,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
   function exportSettings(){
     try {
       const json = M.exportState(state);
-      download('morf-4-2-3-settings.morf', json, 'application/json');
+      download('morf-4-2-2-settings.morf', json, 'application/json');
       setStatus('Exported settings file.', 'success');
     } catch(err){
       setStatus('Export failed: ' + err.message, 'error');
@@ -1658,7 +1556,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
       await navigator.clipboard.writeText(M.exportState(state));
       setStatus('Settings JSON copied.', 'success');
     } catch(err){
-      download('morf-4-2-3-settings.morf', M.exportState(state), 'application/json');
+      download('morf-4-2-2-settings.morf', M.exportState(state), 'application/json');
     }
   }
 
@@ -1699,7 +1597,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
 
     $('#exportBtn').addEventListener('click', () => {
       const json = M.exportState(state);
-      download('morf-4-2-3-settings.morf', json, 'application/json');
+      download('morf-4-2-2-settings.morf', json, 'application/json');
       setStatus('Exported settings file.', 'success');
     });
     $('#importBtn').addEventListener('click', () => $('#importFile').click());
@@ -1723,7 +1621,7 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
     }
     $('#copySettingsBtn').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(M.exportState(state)); setStatus('Settings JSON copied.', 'success'); }
-      catch(err){ download('morf-4-2-3-settings.morf', M.exportState(state), 'application/json'); }
+      catch(err){ download('morf-4-2-2-settings.morf', M.exportState(state), 'application/json'); }
     });
     $('#clearLocalBtn').addEventListener('click', () => {
       if(confirm('Clear the browser autosave for Morf?')){
@@ -1850,10 +1748,8 @@ Jord[a/y]n, Jordy = river child">${escapeHtml(M.nameEntriesToText ? M.nameEntrie
       state = M.normalizeState(next);
       lastResults = [];
       lastStats = {};
-      lastRandomPick = null;
       syncControls();
       renderResults([]);
-      renderRandomPick(null);
       saveLocal();
       const source = opts && opts.source ? ' from ' + opts.source : '';
       setStatus('Imported settings' + source + '.', 'success');

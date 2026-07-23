@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
 
-  const VERSION = 'Morf 4.2.3';
+  const VERSION = 'Morf 4.2.2';
   const MAX_ENUM = 750;
   const MAX_ATTEMPTS = 250;
 
@@ -1034,7 +1034,7 @@
         } else if(cand.kind === 'lex'){
           const forms = this.expandStoredForm(cand.entry.form, { includeLex: false, includeVocab: false });
           const text = stripAffixMarks(pick(forms, this.rng) || cand.entry.form || '');
-          return { ok: true, text, segs: [{ form: text, cat: cand.cat.name || cand.cat.letter || name, gloss: entryGloss(cand.entry), meanings: entryMeanings(cand.entry), letter: cand.cat.letter || '', source: 'lexicon', placement: cand.cat.placement || 'anywhere', catId: cand.cat.id || '', entryId: cand.entry.id || '' }] };
+          return { ok: true, text, segs: [{ form: text, cat: cand.cat.name || cand.cat.letter || name, gloss: entryGloss(cand.entry), meanings: entryMeanings(cand.entry), letter: cand.cat.letter || '', source: 'lexicon', placement: cand.cat.placement || 'anywhere' }] };
         }
       }
       return { ok: false, text: '', segs: [], reason: `no usable expansion for ${name}` };
@@ -1049,7 +1049,7 @@
       const cand = pick(entries, this.rng);
       const forms = this.expandStoredForm(cand.entry.word, { includeLex: false, includeVocab: false });
       const word = stripAffixMarks(pick(forms, this.rng) || cand.entry.word || '');
-      return { ok: true, text: word, segs: [{ form: word, cat: cand.cat.name || cand.cat.variable || clean, gloss: entryGloss(cand.entry), meanings: entryMeanings(cand.entry), variable: cand.cat.variable || '', source: 'vocabulary', catId: cand.cat.id || '', entryId: cand.entry.id || '' }] };
+      return { ok: true, text: word, segs: [{ form: word, cat: cand.cat.name || cand.cat.variable || clean, gloss: entryGloss(cand.entry), meanings: entryMeanings(cand.entry), variable: cand.cat.variable || '', source: 'vocabulary' }] };
     }
 
     generateName(name, context){
@@ -1063,7 +1063,7 @@
       const word = pick(forms, this.rng) || cand.entry.name || '';
       const gloss = cand.entry.actual || cand.entry.gloss || cand.entry.meaning || '';
       const literal = cand.entry.literal || '';
-      return { ok: true, text: word, segs: [{ form: word, cat: cand.cat.name || cand.cat.variable || clean, gloss, literal, actual: gloss, variable: cand.cat.variable || '', source: 'name', nameType: cand.cat.type || '', catId: cand.cat.id || '', entryId: cand.entry.id || '' }] };
+      return { ok: true, text: word, segs: [{ form: word, cat: cand.cat.name || cand.cat.variable || clean, gloss, literal, actual: gloss, variable: cand.cat.variable || '', source: 'name', nameType: cand.cat.type || '' }] };
     }
 
     generateTilde(node, context){
@@ -1237,7 +1237,7 @@
         const cand = pick(lex, this.rng);
         const forms = this.expandStoredForm(cand.entry.form, { includeLex: false, includeVocab: false });
         const text = stripAffixMarks(pick(forms, this.rng) || cand.entry.form || '');
-        return { ok: true, text, segs: [{ form: text, cat: cand.cat.name || cand.cat.letter || clean, gloss: entryGloss(cand.entry), meanings: entryMeanings(cand.entry), letter: cand.cat.letter || '', source: 'lexicon', placement: cand.cat.placement || 'anywhere', catId: cand.cat.id || '', entryId: cand.entry.id || '' }] };
+        return { ok: true, text, segs: [{ form: text, cat: cand.cat.name || cand.cat.letter || clean, gloss: entryGloss(cand.entry), meanings: entryMeanings(cand.entry), letter: cand.cat.letter || '', source: 'lexicon', placement: cand.cat.placement || 'anywhere' }] };
       }
       const vcats = (this.state.vocabularyCategories || []).filter(c => (c.variable || '') === clean || (c.name || '') === clean);
       const voc = [];
@@ -1246,7 +1246,7 @@
         const cand = pick(voc, this.rng);
         const forms = this.expandStoredForm(cand.entry.word, { includeLex: false, includeVocab: false });
         const word = stripAffixMarks(pick(forms, this.rng) || cand.entry.word || '');
-        return { ok: true, text: word, segs: [{ form: word, cat: cand.cat.name || cand.cat.variable || clean, gloss: entryGloss(cand.entry), meanings: entryMeanings(cand.entry), variable: cand.cat.variable || '', source: 'vocabulary', catId: cand.cat.id || '', entryId: cand.entry.id || '' }] };
+        return { ok: true, text: word, segs: [{ form: word, cat: cand.cat.name || cand.cat.variable || clean, gloss: entryGloss(cand.entry), meanings: entryMeanings(cand.entry), variable: cand.cat.variable || '', source: 'vocabulary' }] };
       }
       return { ok: true, text: `|${clean}|`, segs: [{ form: `|${clean}|`, cat: 'literal', gloss: '' }] };
     }
@@ -1672,7 +1672,6 @@
             letter: cat.letter || '',
             placement: cat.placement || 'anywhere',
             source: 'lexicon',
-            catId: cat.id || '',
             entryId: en.id || ''
           });
         }
@@ -1695,7 +1694,6 @@
             variable: cat.variable || '',
             placement: 'anywhere',
             source: 'vocabulary',
-            catId: cat.id || '',
             entryId: en.id || ''
           });
         }
@@ -1721,7 +1719,6 @@
             placement: 'anywhere',
             source: 'name',
             nameType: cat.type || '',
-            catId: cat.id || '',
             entryId: en.id || ''
           });
         }
@@ -1740,7 +1737,6 @@
               variable: cat.variable || '',
               placement: 'anywhere',
               source: 'name',
-              catId: cat.id || '',
               nameType: (cat.type || 'name') + ' nickname',
               isNickname: true,
               nicknameOf: (forms && forms[0]) || en.name || '',
@@ -1861,7 +1857,7 @@
       for(const tile of opts){
         const next = segs.slice();
         if(unknown) next.push({ form: unknown, cat: 'unknown', gloss: '?', source: 'unknown' });
-        next.push({ form: tile.form, cat: tile.cat, gloss: tile.gloss, meanings: tile.meanings || [], literal: tile.literal || '', actual: tile.gloss || '', letter: tile.letter, variable: tile.variable, source: tile.source, placement: tile.placement, catId: tile.catId || '', entryId: tile.entryId || '', nameType: tile.nameType || '', isNickname: !!tile.isNickname, nicknameOf: tile.nicknameOf || '' });
+        next.push({ form: tile.form, cat: tile.cat, gloss: tile.gloss, meanings: tile.meanings || [], literal: tile.literal || '', actual: tile.gloss || '', letter: tile.letter, variable: tile.variable, source: tile.source, placement: tile.placement, nameType: tile.nameType || '', isNickname: !!tile.isNickname, nicknameOf: tile.nicknameOf || '' });
         const nextPrefix = tile.placement === 'start' ? index + tile.form.length : prefixSpanLen;
         dfs(index + tile.form.length, nextPrefix, '', next);
       }
